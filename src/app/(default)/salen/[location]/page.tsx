@@ -1,22 +1,9 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
 import ShareMap from "@/components/map/shareMap";
-import type { Position } from "@/components/map/touchMap";
+import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
 import Salen from "@public/arena/salen.svg";
 import type { Metadata } from "next";
-
-function extractCoordinates(input: string): Position | null {
-  const regex = /^Y(\d+)X(\d+)$/;
-  const match = input.match(regex);
-
-  if (match) {
-    const y = Number.parseInt(match[1], 10);
-    const x = Number.parseInt(match[2], 10);
-    return { x, y };
-  }
-
-  return null;
-}
 
 type Props = {
   params: Promise<{ location: string }>;
@@ -52,9 +39,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function LocationPage({ params }: Props) {
   const { location } = await params;
 
-  const points = extractCoordinates(location);
+  const points = parseGridCoordinates(location);
 
   if (!points) return null;
 
-  return <ShareMap arena="salen" map={Salen} points={points} />;
+  const percentage = gridToPercentage(points.x, points.y);
+
+  return (
+    <ShareMap
+      arena="salen"
+      map={Salen.src}
+      position={{
+        gridX: points.x,
+        gridY: points.y,
+        percentageX: percentage.percentageX,
+        percentageY: percentage.percentageY,
+      }}
+    />
+  );
 }

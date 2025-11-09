@@ -1,23 +1,24 @@
 "use client";
 
-import { gridSize } from "@/lib/constants";
+import {
+  snapToGrid,
+  gridToPercentage,
+  formatGridCoordinates,
+} from "@/lib/grid";
 import { cn } from "@/lib/utils";
+import type { GridPosition } from "@/types/grid";
 import pinIcon from "@public/pin.svg";
 import { NextURL } from "next/dist/server/web/next-url";
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-
-export type Position = {
-  x: number;
-  y: number;
-};
+import DebugOverlay from "./debugOverlay";
 
 function getRelativePosition(
   x: number,
   y: number,
   current: HTMLDivElement,
   offsetY?: number,
-) {
+): GridPosition {
   const { left, top, width, height } = current.getBoundingClientRect();
 
   const relativeX = x - left;
@@ -26,38 +27,24 @@ function getRelativePosition(
   const clampedX = Math.min(Math.max(relativeX, 0), width);
   const clampedY = Math.min(Math.max(relativeY, 0), height);
 
-  const snappedX = Math.round(clampedX / gridSize);
-  const snappedY = Math.round(clampedY / gridSize);
+  const snapped = snapToGrid(clampedX, clampedY, width, height);
 
-  const clampedXPercentage = clampedX / width;
-  const clampedYPercentage = clampedY / height;
+  const { percentageX, percentageY } = gridToPercentage(snapped.x, snapped.y);
 
   return {
-    clampedX: clampedXPercentage,
-    clampedY: clampedYPercentage,
-    snappedX,
-    snappedY,
+    percentageX,
+    percentageY,
+    gridX: snapped.x,
+    gridY: snapped.y,
   };
 }
 
-function getAbsolutePosition(
-  snappedX: number,
-  snappedY: number,
-  containerWidth: number,
-  containerHeight: number,
-) {
-  const absoluteX = snappedX * gridSize;
-  const absoluteY = snappedY * gridSize;
-
-  return { x: absoluteX / containerWidth, y: absoluteY / containerHeight };
-}
-
 type Props = {
-  map: string;
+  map: string | StaticImageData;
   arena?: string;
   generate?: boolean;
   setUrl?: (url: NextURL | undefined) => void;
-  points?: Position;
+  position?: GridPosition;
 };
 
 export default function TouchMap({
@@ -65,25 +52,30 @@ export default function TouchMap({
   map,
   setUrl,
   generate,
-  points,
+  position,
 }: Props) {
   const [isMoving, setIsMoving] = useState(false);
-  const [current, setCurrent] = useState<Position | undefined>();
+  const [current, setCurrent] = useState<GridPosition | undefined>();
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (points && containerRef.current) {
-      const { width, height } = containerRef.current.getBoundingClientRect();
-      setCurrent(getAbsolutePosition(points.x, points.y, width, height));
+    if (position && containerRef.current) {
+      setCurrent({
+        percentageX: position.percentageX,
+        percentageY: position.percentageY,
+        gridX: position.gridX,
+        gridY: position.gridY,
+      });
     }
-  }, [points]);
+  }, [position]);
+
   const offsetY = generate ? 0 : 60;
 
   function onEnd(x: number, y: number) {
     if (!containerRef.current) return;
 
-    const { snappedX, snappedY } = getRelativePosition(
+    const { gridX, gridY } = getRelativePosition(
       x,
       y,
       containerRef.current,
@@ -95,7 +87,7 @@ export default function TouchMap({
     if (setUrl) {
       setUrl(
         new NextURL(
-          `${window.location.origin}/${arena}/Y${snappedY}X${snappedX}`,
+          `${window.location.origin}/${arena}/${formatGridCoordinates(gridX, gridY)}`,
         ),
       );
     }
@@ -105,14 +97,14 @@ export default function TouchMap({
     (x: number, y: number) => {
       if (!containerRef.current) return;
 
-      const { clampedX, clampedY } = getRelativePosition(
+      const { percentageX, percentageY, gridX, gridY } = getRelativePosition(
         x,
         y,
         containerRef.current,
         offsetY,
       );
 
-      setCurrent({ x: clampedX, y: clampedY });
+      setCurrent({ gridX: gridX, gridY: gridY, percentageX, percentageY });
 
       if (setUrl) {
         setUrl(undefined);
@@ -136,12 +128,26 @@ export default function TouchMap({
       onTouchMove={(e) =>
         onMove(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
       }
+      onMouseDown={(e) => {
+        setIsMoving(true);
+        onMove(e.pageX, e.pageY);
+      }}
+      onMouseUp={(e) => onEnd(e.pageX, e.pageY)}
+      onMouseMove={(e) => {
+        if (isMoving) {
+          onMove(e.pageX, e.pageY);
+        }
+      }}
     >
+      {process.env.NODE_ENV === "development" && (
+        <DebugOverlay current={current} />
+      )}
+
       <div
         className="absolute w-[10vw] select-none"
         style={{
-          top: `${(current?.y ?? 0) * 100}%`,
-          left: `${(current?.x ?? 0) * 100}%`,
+          top: `${current?.percentageY}%`,
+          left: `${current?.percentageX}%`,
         }}
       >
         <Image
@@ -153,7 +159,7 @@ export default function TouchMap({
             !generate && isMoving && "-translate-y-[150%]",
           )}
           src={pinIcon}
-          alt=""
+          alt="Pin Icon"
         />
         <div
           className={cn(
