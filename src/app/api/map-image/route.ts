@@ -1,4 +1,3 @@
-import puppeteer from "puppeteer";
 import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -10,19 +9,32 @@ async function getBrowser() {
     return browserInstance;
   }
 
-  browserInstance = await puppeteer.launch({
-    headless: true,
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-features=VizDisplayCompositor",
-      "--disable-extensions",
-      "--no-first-run",
-      "--disable-default-apps",
-    ],
-  });
+  // Check if we're in a serverless/production environment (Linux)
+  const isProduction = process.platform === "linux";
+
+  if (isProduction) {
+    // Use @sparticuz/chromium for serverless environments
+    const chromium = (await import("@sparticuz/chromium")).default;
+    const puppeteerCore = (await import("puppeteer-core")).default;
+
+    browserInstance = await puppeteerCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
+  } else {
+    // Use regular puppeteer for local development (macOS/Windows)
+    const puppeteer = (await import("puppeteer")).default;
+
+    browserInstance = await puppeteer.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+      ],
+    });
+  }
 
   return browserInstance;
 }

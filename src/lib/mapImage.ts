@@ -53,7 +53,7 @@ export function generateMapMetadata(
 ) {
   const {
     title = `${arena.charAt(0).toUpperCase() + arena.slice(1)} Arena - ${location}`,
-    description = `Location ${location} in ${arena.charAt(0).toUpperCase() + arena.slice(1)} Arena`,
+    description = `Location ${location} in ${arena.charAt(0).toUpperCase() + arena.slice(1)}`,
     imageWidth = 1200,
     imageHeight = 630,
   } = options;
