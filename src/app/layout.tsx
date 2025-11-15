@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import "../globals.css";
+import "./globals.css";
 import { Menu } from "@/components/home/menu";
 import Logo from "@/components/logo";
 import { Analytics } from "@vercel/analytics/react";
