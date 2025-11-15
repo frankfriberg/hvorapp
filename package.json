@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "biome lint --write",
-    "format": "biome format --write",
-    "generate": "tsx ./lib/generate.ts"
+    "format": "biome format --write"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
@@ -29,17 +28,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
-    "@types/imagemin": "^9.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "cloudinary": "^2.6.0",
-    "imagemin": "^9.0.0",
-    "imagemin-pngquant": "^10.0.0",
     "postcss": "^8",
     "puppeteer": "^23.11.1",
     "tailwindcss": "^3.4.1",
-    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }
