@@ -1,7 +1,11 @@
-import { readdirSync } from "node:fs";
-import path from "node:path";
 import ShareMap from "@/components/map/shareMap";
-import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
+import {
+  gridToPercentage,
+  parseGridCoordinates,
+  columns,
+  rows,
+  formatGridCoordinates,
+} from "@/lib/grid";
 import { generateMapMetadata } from "@/lib/mapImage";
 import Salen from "@public/arena/salen.svg";
 import type { Metadata } from "next";
@@ -11,25 +15,23 @@ type Props = {
 };
 
 export function generateStaticParams() {
-  const dir = path.resolve(process.cwd(), "salen");
-  const files = readdirSync(dir);
-  const locationsMap = files.map((file) => {
-    const locationName = file.includes(".")
-      ? file.substring(0, file.lastIndexOf("."))
-      : file;
+  const locations = [];
 
-    return {
-      location: locationName,
-    };
-  });
+  for (let row = 0; row <= rows; row++) {
+    for (let col = 0; col <= columns; col++) {
+      locations.push({
+        location: formatGridCoordinates(col, row),
+      });
+    }
+  }
 
-  return locationsMap;
+  return locations;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location } = await params;
-  
-  return generateMapMetadata('salen', location);
+
+  return generateMapMetadata("salen", location);
 }
 
 export default async function LocationPage({ params }: Props) {
