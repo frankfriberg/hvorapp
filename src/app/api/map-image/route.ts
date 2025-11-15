@@ -251,7 +251,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error generating map image:", error);
-    return new NextResponse(`Error generating image: ${error.message}`, {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return new NextResponse(`Error generating image: ${errorMessage}`, {
       status: 500,
       headers: { "Content-Type": "text/plain" },
     });
