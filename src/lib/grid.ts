@@ -1,4 +1,4 @@
-export const gridMultiplier = 4;
+export const gridMultiplier = 6;
 export const aspectRatio = { width: 8, height: 15 };
 
 export const columns = gridMultiplier * aspectRatio.width;
