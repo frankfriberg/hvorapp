@@ -6,7 +6,6 @@ import {
   rows,
   formatGridCoordinates,
 } from "@/lib/grid";
-import { generateMapMetadata } from "@/lib/mapImage";
 import Salen from "@public/arena/salen.svg";
 import type { Metadata } from "next";
 
@@ -31,7 +30,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location } = await params;
 
-  return generateMapMetadata("salen", location);
+  return {
+    title: "Jeg sitter her",
+    description: `${location} Salen`,
+  };
 }
 
 export default async function LocationPage({ params }: Props) {
