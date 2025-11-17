@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  snapToGrid,
-  gridToPercentage,
-  formatGridCoordinates,
-} from "@/lib/grid";
+import { snapToGrid, formatGridCoordinates } from "@/lib/grid";
 import { cn } from "@/lib/utils";
 import type { GridPosition } from "@/types/grid";
 import pinIcon from "@public/pin.svg";
@@ -27,9 +23,10 @@ function getRelativePosition(
   const clampedX = Math.min(Math.max(relativeX, 0), width);
   const clampedY = Math.min(Math.max(relativeY, 0), height);
 
-  const snapped = snapToGrid(clampedX, clampedY, width, height);
+  const percentageX = (clampedX / width) * 100;
+  const percentageY = (clampedY / height) * 100;
 
-  const { percentageX, percentageY } = gridToPercentage(snapped.x, snapped.y);
+  const snapped = snapToGrid(clampedX, clampedY, width, height);
 
   return {
     percentageX,
@@ -104,7 +101,7 @@ export default function TouchMap({
         offsetY,
       );
 
-      setCurrent({ gridX: gridX, gridY: gridY, percentageX, percentageY });
+      setCurrent({ gridX, gridY, percentageX, percentageY });
 
       if (setUrl) {
         setUrl(undefined);
