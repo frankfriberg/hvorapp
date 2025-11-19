@@ -1,31 +1,11 @@
 import ShareMap from "@/components/map/shareMap";
-import {
-  gridToPercentage,
-  parseGridCoordinates,
-  columns,
-  rows,
-  formatGridCoordinates,
-} from "@/lib/grid";
+import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
 import Salen from "@public/arena/salen.svg";
 import type { Metadata } from "next";
 
 type Props = {
   params: Promise<{ location: string }>;
 };
-
-export function generateStaticParams() {
-  const locations = [];
-
-  for (let row = 0; row <= rows; row++) {
-    for (let col = 0; col <= columns; col++) {
-      locations.push({
-        location: formatGridCoordinates(col, row),
-      });
-    }
-  }
-
-  return locations;
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location } = await params;
