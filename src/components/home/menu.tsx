@@ -29,6 +29,10 @@ export function Menu() {
       href: "/",
     },
     {
+      title: "Oppdateringer",
+      href: "/updates",
+    },
+    {
       title: "Tilbakemelding",
       href: "/feedback",
     },
