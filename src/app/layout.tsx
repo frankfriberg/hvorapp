@@ -4,6 +4,7 @@ import "./globals.css";
 import { Menu } from "@/components/home/menu";
 import Logo from "@/components/logo";
 import { Analytics } from "@vercel/analytics/react";
+import { BackButton } from "@/components/ui/backButton";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,7 +24,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.className} antialiased`}>
         <div className="flex items-center justify-between p-6">
-          <Logo />
+          <div className="flex items-center gap-2">
+            <BackButton />
+            <Logo />
+          </div>
           <Menu />
         </div>
 
