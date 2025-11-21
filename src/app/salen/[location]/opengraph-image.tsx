@@ -131,5 +131,8 @@ export default async function Image({ params }: Props) {
         </div>
       </div>
     </div>,
+    {
+      ...size,
+    },
   );
 }
