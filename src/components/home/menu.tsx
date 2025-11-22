@@ -15,8 +15,11 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "../ui/drawer";
+interface MenuProps {
+  hasUnread: boolean;
+}
 
-export function Menu() {
+export function Menu({ hasUnread }: MenuProps) {
   const [open, setOpen] = React.useState(false);
 
   const onOpenChange = React.useCallback((open: boolean) => {
@@ -27,6 +30,10 @@ export function Menu() {
     {
       title: "Kart",
       href: "/",
+    },
+    {
+      title: "Oppdateringer",
+      href: "/updates",
     },
     {
       title: "Tilbakemelding",
@@ -42,7 +49,7 @@ export function Menu() {
       <DrawerTrigger asChild>
         <Button
           variant="ghost"
-          className="-ml-2 mr-2 h-8 w-8 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="relative -ml-2 mr-2 h-8 w-8 px-0 text-base hover:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -59,6 +66,9 @@ export function Menu() {
               d="M3.75 9h16.5m-16.5 6.75h16.5"
             />
           </svg>
+          {hasUnread && (
+            <span className="absolute -right-1.5 -top-1 h-3 w-3 rounded-full bg-red-500 animate-pulse" />
+          )}
           <span className="sr-only">Toggle Menu</span>
         </Button>
       </DrawerTrigger>
@@ -73,6 +83,7 @@ export function Menu() {
                     key={item.href}
                     href={item.href}
                     onOpenChange={setOpen}
+                    showBadge={item.href === "/updates" && hasUnread}
                   >
                     {item.title}
                   </MobileLink>
@@ -110,6 +121,7 @@ interface MobileLinkProps extends LinkProps {
   onOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
   className?: string;
+  showBadge?: boolean;
 }
 
 function MobileLink({
@@ -117,6 +129,7 @@ function MobileLink({
   onOpenChange,
   className,
   children,
+  showBadge = false,
   ...props
 }: MobileLinkProps) {
   const router = useRouter();
@@ -130,10 +143,13 @@ function MobileLink({
         router.push(href.toString());
         onOpenChange?.(false);
       }}
-      className={cn("text-3xl", active && "font-bold", className)}
+      className={cn("relative text-3xl", active && "font-bold", className)}
       {...props}
     >
       {children}
+      {showBadge && (
+        <span className="ml-2 inline-block h-3 w-3 rounded-full bg-red-500 -translate-y-4 animate-pulse" />
+      )}
     </Link>
   );
 }
