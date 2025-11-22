@@ -70,3 +70,32 @@ export function getUpdates(): Update[] {
     return -1;
   });
 }
+
+/**
+ * Gets the latest update.
+ *
+ * @returns {Update | null} The latest update, or null if none exist
+ */
+export function getLatestUpdate(): Update | null {
+  const updates = getUpdates();
+  return updates.length > 0 ? updates[0] : null;
+}
+
+/**
+ * Server-side utility to check if user has read the latest update.
+ * Compares the date of the latest update with the timestamp of the last visit to /updates.
+ *
+ * @returns {boolean} True if user has read the update, false if there's an unread update
+ */
+export function hasUnreadUpdates(
+  latestUpdate: Update | null,
+  updatesLastVisited: string | undefined,
+): boolean {
+  if (!latestUpdate) return false;
+  if (!updatesLastVisited) return true;
+
+  const lastVisitTimestamp = Number.parseInt(updatesLastVisited, 10);
+  const updateTimestamp = new Date(latestUpdate.date).getTime();
+
+  return lastVisitTimestamp < updateTimestamp;
+}
