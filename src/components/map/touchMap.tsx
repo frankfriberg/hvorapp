@@ -36,6 +36,11 @@ function getRelativePosition(
   };
 }
 
+// Vertical offset (px) of the touch zone from the top of the viewport, i.e. the
+// header height. Pointer coordinates are page-relative, so we subtract this to
+// map them onto the map. `generate` mode renders without the header.
+const HEADER_OFFSET_Y = 60;
+
 type Props = {
   map: string | StaticImageData;
   arena?: string;
@@ -67,7 +72,7 @@ export default function TouchMap({
     }
   }, [position]);
 
-  const offsetY = generate ? 0 : 60;
+  const offsetY = generate ? 0 : HEADER_OFFSET_Y;
 
   function onEnd(x: number, y: number) {
     if (!containerRef.current) return;

@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Hvor
+
+**Hvor** ("Where") lets people share where they are sitting in an arena. Drag a
+pin onto the arena map, get a shareable link (`/salen/X<col>Y<row>`), and share
+it. Opening the link renders the map with the pin placed, and link previews show
+a generated Open Graph image of the same map + pin.
+
+Built with Next.js (App Router, React 19), Tailwind CSS, and shadcn/ui. UI text
+is in Norwegian.
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:9100](http://localhost:9100).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Description |
+|---|---|
+| `npm run dev` | Dev server on port 9100 (Turbopack) |
+| `npm run build` | Production build (`output: "standalone"`) |
+| `npm run start` | Start the production server |
+| `npm run lint` | Lint with Biome (check only) |
+| `npm run lint:fix` | Lint and auto-fix with Biome |
+| `npm run format` | Format with Biome |
+| `npm run typecheck` | Type-check with `tsc --noEmit` |
 
-## Learn More
+Biome handles both linting and formatting — there is no ESLint or Prettier.
 
-To learn more about Next.js, take a look at the following resources:
+## Environment variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Used by | Notes |
+|---|---|---|
+| `RESEND_API_KEY` | feedback form | required to send feedback email |
+| `LINEAR_ISSUE_EMAIL` | feedback form | destination address for feedback |
+| `NEXT_PUBLIC_VIPPS_URL` | nav menu | optional support link |
+| `NEXT_PUBLIC_MOBILEPAY_URL` | nav menu | optional support link |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Updates / Changelog
 
-## Deploy on Vercel
+The app includes a continuous feed of updates at `/updates`. To add a new update:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Create a markdown file in the `updates/` directory.
+2. Follow the naming convention `YYYY-MM-DD-slug.md`.
+3. Include frontmatter with `title` and `date`:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```markdown
+---
+title: "Your Update Title"
+date: "2024-11-21"
+---
+
+Your update content goes here in markdown format...
+```
+
+Updates are sorted by date (newest first) and rendered as a continuous feed. A
+badge appears in the nav when the latest update is newer than the visitor's last
+visit to `/updates`.
+
+## Architecture
+
+See [`AGENTS.md`](./AGENTS.md) for a map of the codebase, conventions, and gotchas.
+
+## Deploy
+
+Deployed on [Vercel](https://vercel.com).
