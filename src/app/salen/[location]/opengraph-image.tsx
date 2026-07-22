@@ -1,3 +1,4 @@
+// biome-ignore-all lint/performance/noImgElement: next/og (Satori) renders with plain <img>; next/image is not supported in ImageResponse.
 import { ImageResponse } from "next/og";
 import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
 import { readFile } from "node:fs/promises";

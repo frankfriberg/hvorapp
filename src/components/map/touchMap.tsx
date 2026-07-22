@@ -116,6 +116,7 @@ export default function TouchMap({
   );
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: touch/mouse drag surface for placing the pin; not a semantic interactive control.
     <div
       id="touchzone"
       ref={containerRef}
