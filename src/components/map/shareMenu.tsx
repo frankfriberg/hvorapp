@@ -26,12 +26,12 @@ export default function ShareMenu({ url }: ShareMenuProps) {
   return (
     <Button
       className={cn(
-        "fixed -right-[25vw] bottom-[10vw] size-20 rounded-full transition-[right]",
+        "fixed right-[-25vw] bottom-[10vw] size-20 rounded-full transition-[right]",
         url && "right-[10vw]",
       )}
       onClick={handleShare}
     >
-      <ShareIcon className="!size-7" />
+      <ShareIcon className="size-7!" />
     </Button>
   );
 }

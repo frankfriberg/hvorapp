@@ -18,8 +18,10 @@ hardcoded throughout — the `arena` "abstraction" is aspirational, not general.
 ## Stack
 
 - **Next.js 16** (App Router, React 19, `output: "standalone"`), TypeScript strict.
-- **Tailwind CSS 3** + shadcn/ui (new-york style) in `src/components/ui`.
-- **Biome 1.9** for lint + format (2-space, double quotes, trailing commas, semicolons).
+- **Tailwind CSS 4** + shadcn/ui (new-york style) in `src/components/ui`. Config is
+  CSS-first in `src/app/globals.css` (`@theme`, `@custom-variant dark`, `@plugin`) —
+  there is **no `tailwind.config.ts`**. PostCSS uses `@tailwindcss/postcss`.
+- **Biome 2** for lint + format (2-space, double quotes, trailing commas, semicolons).
 - **Resend** for transactional email (feedback form).
 - **next/og** (`ImageResponse`) for dynamic OG images.
 - Deployed on **Vercel** (`@vercel/analytics`).

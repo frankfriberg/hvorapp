@@ -57,7 +57,7 @@ export function Menu({ hasUnread }: MenuProps) {
             viewBox="0 0 24 24"
             strokeWidth="1.5"
             stroke="currentColor"
-            className="!size-6"
+            className="size-6!"
           >
             <title>two stripes</title>
             <path

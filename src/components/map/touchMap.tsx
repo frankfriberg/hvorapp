@@ -156,17 +156,17 @@ export default function TouchMap({
         <Image
           priority
           className={cn(
-            "pointer-events-none absolute -translate-x-[50%] -translate-y-[115%] touch-none select-none",
-            !current && "-translate-y-[4000%]",
+            "pointer-events-none absolute translate-x-[-50%] translate-y-[-115%] touch-none select-none",
+            !current && "translate-y-[-4000%]",
             !generate && "transition-transform",
-            !generate && isMoving && "-translate-y-[150%]",
+            !generate && isMoving && "translate-y-[-150%]",
           )}
           src={pinIcon}
           alt="Pin Icon"
         />
         <div
           className={cn(
-            "h-[1.5vw] w-[1.5vw] -translate-x-[50%] -translate-y-[50%] rounded-full bg-[#E45F53]",
+            "h-[1.5vw] w-[1.5vw] translate-x-[-50%] translate-y-[-50%] rounded-full bg-[#E45F53]",
             !current && "hidden",
           )}
         />
