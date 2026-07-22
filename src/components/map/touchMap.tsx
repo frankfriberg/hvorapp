@@ -45,14 +45,14 @@ type Props = {
   map: string | StaticImageData;
   arena?: string;
   generate?: boolean;
-  setUrl?: (url: NextURL | undefined) => void;
+  setUrlAction?: (url: NextURL | undefined) => void;
   position?: GridPosition;
 };
 
 export default function TouchMap({
   arena,
   map,
-  setUrl,
+  setUrlAction,
   generate,
   position,
 }: Props) {
@@ -86,8 +86,8 @@ export default function TouchMap({
 
     setIsMoving(false);
 
-    if (setUrl) {
-      setUrl(
+    if (setUrlAction) {
+      setUrlAction(
         new NextURL(
           `${window.location.origin}/${arena}/${formatGridCoordinates(gridX, gridY)}`,
         ),
@@ -108,11 +108,11 @@ export default function TouchMap({
 
       setCurrent({ gridX, gridY, percentageX, percentageY });
 
-      if (setUrl) {
-        setUrl(undefined);
+      if (setUrlAction) {
+        setUrlAction(undefined);
       }
     },
-    [setUrl, offsetY],
+    [setUrlAction, offsetY],
   );
 
   return (

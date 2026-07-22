@@ -18,7 +18,7 @@ export default function ShareMap(props: Props) {
 
   return (
     <div className="touch-none select-none px-10">
-      <TouchMap setUrl={setUrl} {...props} />
+      <TouchMap setUrlAction={setUrl} {...props} />
       <ShareMenu url={url} />
     </div>
   );
