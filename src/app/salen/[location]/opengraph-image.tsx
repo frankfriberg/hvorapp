@@ -1,6 +1,13 @@
 // biome-ignore-all lint/performance/noImgElement: next/og (Satori) renders with plain <img>; next/image is not supported in ImageResponse.
 import { ImageResponse } from "next/og";
 import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
+import {
+  PIN_COLOR,
+  PIN_DOT_TRANSFORM,
+  PIN_DOT_VW,
+  PIN_ICON_TRANSFORM,
+  PIN_WIDTH_VW,
+} from "@/lib/pin";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -106,7 +113,7 @@ export default async function Image({ params }: Props) {
               display: "flex",
               flexDirection: "column",
               position: "absolute",
-              width: "10vw",
+              width: `${PIN_WIDTH_VW}vw`,
               left: `${percentageX}%`,
               top: `${percentageY}%`,
             }}
@@ -116,16 +123,16 @@ export default async function Image({ params }: Props) {
               alt="Pin"
               style={{
                 position: "absolute",
-                transform: "translate(-50%, -115%)",
+                transform: PIN_ICON_TRANSFORM,
               }}
             />
             <div
               style={{
-                width: "1.5vw",
-                height: "1.5vw",
-                transform: "translate(-50%, -50%)",
+                width: `${PIN_DOT_VW}vw`,
+                height: `${PIN_DOT_VW}vw`,
+                transform: PIN_DOT_TRANSFORM,
                 borderRadius: "100%",
-                backgroundColor: "#E45F53",
+                backgroundColor: PIN_COLOR,
               }}
             />
           </div>

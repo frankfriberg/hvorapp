@@ -1,6 +1,13 @@
 "use client";
 
-import { snapToGrid, formatGridCoordinates } from "@/lib/grid";
+import { formatGridCoordinates, snapToGrid } from "@/lib/grid";
+import {
+  PIN_COLOR,
+  PIN_DOT_TRANSFORM,
+  PIN_DOT_VW,
+  PIN_ICON_TRANSFORM,
+  PIN_WIDTH_VW,
+} from "@/lib/pin";
 import { cn } from "@/lib/utils";
 import type { GridPosition } from "@/types/grid";
 import pinIcon from "@public/pin.svg";
@@ -9,16 +16,21 @@ import Image, { type StaticImageData } from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import DebugOverlay from "./debugOverlay";
 
-function getRelativePosition(
-  x: number,
-  y: number,
-  current: HTMLDivElement,
-  offsetY?: number,
-): GridPosition {
-  const { left, top, width, height } = current.getBoundingClientRect();
+// Vertical lift (px) applied to the placed marker so the user's fingertip
+// doesn't cover it while dragging.
+const MARKER_LIFT_PX = 60;
 
-  const relativeX = x - left;
-  const relativeY = offsetY ? y - offsetY - top : y - top;
+function getRelativePosition(
+  clientX: number,
+  clientY: number,
+  container: HTMLDivElement,
+): GridPosition {
+  // getBoundingClientRect and the pointer's client coordinates are both
+  // viewport-relative, so this stays correct regardless of page scroll.
+  const { left, top, width, height } = container.getBoundingClientRect();
+
+  const relativeX = clientX - left;
+  const relativeY = clientY - top - MARKER_LIFT_PX;
 
   const clampedX = Math.min(Math.max(relativeX, 0), width);
   const clampedY = Math.min(Math.max(relativeY, 0), height);
@@ -36,15 +48,9 @@ function getRelativePosition(
   };
 }
 
-// Vertical offset (px) of the touch zone from the top of the viewport, i.e. the
-// header height. Pointer coordinates are page-relative, so we subtract this to
-// map them onto the map. `generate` mode renders without the header.
-const HEADER_OFFSET_Y = 60;
-
 type Props = {
   map: string | StaticImageData;
   arena?: string;
-  generate?: boolean;
   setUrlAction?: (url: NextURL | undefined) => void;
   position?: GridPosition;
 };
@@ -53,7 +59,6 @@ export default function TouchMap({
   arena,
   map,
   setUrlAction,
-  generate,
   position,
 }: Props) {
   const [isMoving, setIsMoving] = useState(false);
@@ -72,16 +77,31 @@ export default function TouchMap({
     }
   }, [position]);
 
-  const offsetY = generate ? 0 : HEADER_OFFSET_Y;
+  // React registers onTouchStart/onTouchMove as passive listeners, so their
+  // preventDefault() is a no-op. Attach non-passive native listeners so we can
+  // stop the browser from starting a text selection / touch callout while the
+  // user drags the pin.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
 
-  function onEnd(x: number, y: number) {
+    const preventTouch = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener("touchstart", preventTouch, { passive: false });
+    el.addEventListener("touchmove", preventTouch, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", preventTouch);
+      el.removeEventListener("touchmove", preventTouch);
+    };
+  }, []);
+
+  function onEnd(clientX: number, clientY: number) {
     if (!containerRef.current) return;
 
     const { gridX, gridY } = getRelativePosition(
-      x,
-      y,
+      clientX,
+      clientY,
       containerRef.current,
-      offsetY,
     );
 
     setIsMoving(false);
@@ -96,14 +116,13 @@ export default function TouchMap({
   }
 
   const onMove = useCallback(
-    (x: number, y: number) => {
+    (clientX: number, clientY: number) => {
       if (!containerRef.current) return;
 
       const { percentageX, percentageY, gridX, gridY } = getRelativePosition(
-        x,
-        y,
+        clientX,
+        clientY,
         containerRef.current,
-        offsetY,
       );
 
       setCurrent({ gridX, gridY, percentageX, percentageY });
@@ -112,7 +131,7 @@ export default function TouchMap({
         setUrlAction(undefined);
       }
     },
-    [setUrlAction, offsetY],
+    [setUrlAction],
   );
 
   return (
@@ -120,59 +139,72 @@ export default function TouchMap({
     <div
       id="touchzone"
       ref={containerRef}
-      className="relative w-full"
+      className="relative w-full select-none touch-none"
+      style={{ WebkitTouchCallout: "none" }}
       onTouchStart={(e) => {
         setIsMoving(true);
-        onMove(e.changedTouches[0].pageX, e.changedTouches[0].pageY);
+        onMove(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
       }}
       onTouchEnd={(e) =>
-        onEnd(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
+        onEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
       }
       onTouchMove={(e) =>
-        onMove(e.changedTouches[0].pageX, e.changedTouches[0].pageY)
+        onMove(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
       }
       onMouseDown={(e) => {
+        // Prevent the browser from starting a text/element selection of the
+        // page while dragging the pin.
+        e.preventDefault();
         setIsMoving(true);
-        onMove(e.pageX, e.pageY);
+        onMove(e.clientX, e.clientY);
       }}
-      onMouseUp={(e) => onEnd(e.pageX, e.pageY)}
+      onMouseUp={(e) => onEnd(e.clientX, e.clientY)}
       onMouseMove={(e) => {
         if (isMoving) {
-          onMove(e.pageX, e.pageY);
+          onMove(e.clientX, e.clientY);
         }
       }}
+      onDragStart={(e) => e.preventDefault()}
     >
       {process.env.NODE_ENV === "development" && (
         <DebugOverlay current={current} />
       )}
 
       <div
-        className="absolute w-[10vw] select-none"
+        className="absolute select-none"
         style={{
           top: `${current?.percentageY}%`,
           left: `${current?.percentageX}%`,
+          width: `${PIN_WIDTH_VW}vw`,
         }}
       >
         <Image
           priority
-          className={cn(
-            "pointer-events-none absolute translate-x-[-50%] translate-y-[-115%] touch-none select-none",
-            !current && "translate-y-[-4000%]",
-            !generate && "transition-transform",
-            !generate && isMoving && "translate-y-[-150%]",
-          )}
+          draggable={false}
+          className="pointer-events-none absolute touch-none select-none transition-transform"
+          style={{
+            transform: !current
+              ? "translate(-50%, -4000%)"
+              : isMoving
+                ? "translate(-50%, -150%)"
+                : PIN_ICON_TRANSFORM,
+          }}
           src={pinIcon}
           alt="Pin Icon"
         />
         <div
-          className={cn(
-            "h-[1.5vw] w-[1.5vw] translate-x-[-50%] translate-y-[-50%] rounded-full bg-[#E45F53]",
-            !current && "hidden",
-          )}
+          className={cn("rounded-full", !current && "hidden")}
+          style={{
+            width: `${PIN_DOT_VW}vw`,
+            height: `${PIN_DOT_VW}vw`,
+            transform: PIN_DOT_TRANSFORM,
+            background: PIN_COLOR,
+          }}
         />
       </div>
       <Image
         priority
+        draggable={false}
         src={map}
         alt=""
         width={868}
