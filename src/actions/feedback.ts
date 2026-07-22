@@ -40,12 +40,18 @@ export async function sendFeedback(
   const resend = new Resend(apiKey);
 
   try {
-    await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: "feedback@hvor.app",
       to: [to],
       subject: `${input.name} - ${input.email}`,
       text: input.content,
     });
+
+    if (error) {
+      console.error("Failed to send feedback email:", error);
+      return { error: "Noe gikk galt, prøv igjen.", input };
+    }
+
     return { message: "Takk for din tilbakemelding!", input };
   } catch (error) {
     console.error("Failed to send feedback email:", error);
