@@ -38,7 +38,8 @@ npm run format    # biome format --write
 npm run typecheck # tsc --noEmit
 ```
 
-There is **no test suite** and no CI config in the repo. Biome is the only
+Tests run on **Vitest** (`npm test`); `src/lib/grid.ts` is covered by
+`src/lib/grid.test.ts`. There is no CI config in the repo. Biome is the only
 linter/formatter — there is no ESLint or Prettier.
 
 ## Layout

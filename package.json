@@ -9,7 +9,9 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --write",
     "format": "biome format --write",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
@@ -38,7 +40,8 @@
     "@types/react-dom": "19.2.3",
     "postcss": "^8",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "@types/react": "19.2.17",

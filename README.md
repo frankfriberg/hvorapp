@@ -28,6 +28,8 @@ Open [http://localhost:9100](http://localhost:9100).
 | `npm run lint:fix` | Lint and auto-fix with Biome |
 | `npm run format` | Format with Biome |
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
+| `npm test` | Run the Vitest test suite |
+| `npm run test:watch` | Run Vitest in watch mode |
 
 Biome handles both linting and formatting — there is no ESLint or Prettier.
 
