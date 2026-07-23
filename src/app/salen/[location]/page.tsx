@@ -21,7 +21,14 @@ export default async function LocationPage({ params }: Props) {
 
   const points = parseGridCoordinates(location);
 
-  if (!points) return null;
+  if (!points) {
+    return (
+      <div className="flex flex-col gap-3 px-6 py-3">
+        <h1 className="text-2xl font-bold">Ugyldig plassering</h1>
+        <p>Denne lenken peker ikke til en gyldig plassering.</p>
+      </div>
+    );
+  }
 
   const percentage = gridToPercentage(points.x, points.y);
 

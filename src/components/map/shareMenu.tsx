@@ -1,8 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ShareIcon } from "lucide-react";
+import { CheckIcon, ShareIcon } from "lucide-react";
 import type { NextURL } from "next/dist/server/web/next-url";
+import { useState } from "react";
 import { Button } from "../ui/button";
 
 type ShareMenuProps = {
@@ -10,16 +11,30 @@ type ShareMenuProps = {
 };
 
 export default function ShareMenu({ url }: ShareMenuProps) {
-  const handleShare = () => {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (!url) return;
+
+    // Native share sheet (mobile). A rejected promise is usually the user
+    // dismissing the sheet, so we swallow it.
     if (typeof navigator !== "undefined" && navigator.share) {
-      navigator
-        .share({
-          title: "Her sitter jeg!",
-          url: url?.href,
-        })
-        .catch(() => null);
-    } else {
-      console.warn("Web Share API is not supported in this environment.");
+      try {
+        await navigator.share({ title: "Her sitter jeg!", url: url.href });
+      } catch {
+        // cancelled or unavailable — nothing to do
+      }
+      return;
+    }
+
+    // Fallback for environments without the Web Share API (e.g. desktop):
+    // copy the link to the clipboard and briefly confirm.
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      console.warn("Could not copy link to clipboard.");
     }
   };
 
@@ -30,8 +45,13 @@ export default function ShareMenu({ url }: ShareMenuProps) {
         url && "right-[10vw]",
       )}
       onClick={handleShare}
+      aria-label={copied ? "Lenke kopiert" : "Del plassering"}
     >
-      <ShareIcon className="size-7!" />
+      {copied ? (
+        <CheckIcon className="size-7!" />
+      ) : (
+        <ShareIcon className="size-7!" />
+      )}
     </Button>
   );
 }

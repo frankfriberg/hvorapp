@@ -3,7 +3,7 @@
 import mobilepay from "@public/mobilepay.svg";
 import vipps from "@public/vipps.svg";
 import Link, { type LinkProps } from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
@@ -132,17 +132,13 @@ function MobileLink({
   showBadge = false,
   ...props
 }: MobileLinkProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const active = pathname === href;
 
   return (
     <Link
       href={href}
-      onClick={() => {
-        router.push(href.toString());
-        onOpenChange?.(false);
-      }}
+      onClick={() => onOpenChange?.(false)}
       className={cn("relative text-3xl", active && "font-bold", className)}
       {...props}
     >
