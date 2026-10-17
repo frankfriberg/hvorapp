@@ -2,6 +2,8 @@
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { arenaToSvg } from "@shared/arena";
+import salen from "@shared/arenas/salen";
 import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
 import {
   PIN_COLOR,
@@ -51,11 +53,6 @@ export default async function Image({ params }: Props) {
 
   const { percentageX, percentageY } = gridToPercentage(coords.x, coords.y);
 
-  const mapData = await readFile(
-    join(process.cwd(), "public/arena/salen.svg"),
-    "base64",
-  );
-
   const pinData = await readFile(
     join(process.cwd(), "public/pin.svg"),
     "base64",
@@ -66,7 +63,7 @@ export default async function Image({ params }: Props) {
     "base64",
   );
 
-  const mapSource = `data:image/svg+xml;base64,${mapData}`;
+  const mapSource = `data:image/svg+xml;base64,${Buffer.from(arenaToSvg(salen)).toString("base64")}`;
   const pinSource = `data:image/svg+xml;base64,${pinData}`;
   const logoSource = `data:image/svg+xml;base64,${logoData}`;
 

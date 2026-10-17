@@ -35,6 +35,7 @@ Open [http://localhost:9100](http://localhost:9100).
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
 | `npm test` | Run the Vitest test suite |
 | `npm run test:watch` | Run Vitest in watch mode |
+| `npm run arena:build -- salen` | Regenerate `shared/arenas/salen.ts` from `public/arena/salen.svg` |
 
 Biome handles both linting and formatting — there is no ESLint or Prettier.
 

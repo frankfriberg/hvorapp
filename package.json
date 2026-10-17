@@ -11,7 +11,8 @@
     "format": "biome format --write",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "arena:build": "node scripts/arena-geometry.mjs"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",

@@ -1,3 +1,4 @@
+import salen from "@shared/arenas/salen";
 import type { GridPosition } from "@shared/grid";
 import { formatGridCoordinates, snapToGrid } from "@shared/grid";
 import { PIN_COLOR, PIN_DOT_VW, PIN_WIDTH_VW } from "@shared/pin";
@@ -10,12 +11,11 @@ import {
   View,
 } from "react-native";
 import { locationUrl } from "@/lib/links";
+import ArenaMap from "./ArenaMap";
 
-const arenaMap = require("@public/arena/salen.svg");
 const pinIcon = require("@public/pin.svg");
 
-// Intrinsic sizes of the shared SVGs.
-const MAP_ASPECT = 1629 / 3076;
+// Intrinsic size of public/pin.svg.
 const PIN_ASPECT = 316 / 250;
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
@@ -99,12 +99,7 @@ export default function TouchMap({ arena, position, onUrlChange }: Props) {
       onResponderMove={onMove}
       onResponderRelease={onRelease}
     >
-      <Image
-        source={arenaMap}
-        style={StyleSheet.absoluteFill}
-        contentFit="contain"
-        pointerEvents="none"
-      />
+      <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
       {current && (
         <View
           pointerEvents="none"
@@ -146,6 +141,6 @@ export default function TouchMap({ arena, position, onUrlChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  map: { width: "100%", aspectRatio: MAP_ASPECT },
+  map: { width: "100%", aspectRatio: salen.width / salen.height },
   anchor: { position: "absolute", width: 0, height: 0 },
 });

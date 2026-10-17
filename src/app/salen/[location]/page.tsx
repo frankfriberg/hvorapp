@@ -1,4 +1,3 @@
-import Salen from "@public/arena/salen.svg";
 import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
 import type { Metadata } from "next";
 import ShareMap from "@/components/map/shareMap";
@@ -35,7 +34,6 @@ export default async function LocationPage({ params }: Props) {
   return (
     <ShareMap
       arena="salen"
-      map={Salen.src}
       position={{
         gridX: points.x,
         gridY: points.y,

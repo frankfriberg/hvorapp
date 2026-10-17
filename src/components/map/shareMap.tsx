@@ -2,14 +2,12 @@
 
 import type { GridPosition } from "@shared/grid";
 import type { NextURL } from "next/dist/server/web/next-url";
-import type { StaticImageData } from "next/image";
 import { useState } from "react";
 import ShareMenu from "./shareMenu";
 import TouchMap from "./touchMap";
 
 type Props = {
   arena: "salen";
-  map: StaticImageData | string;
   position?: GridPosition;
 };
 

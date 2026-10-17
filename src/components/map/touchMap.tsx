@@ -1,6 +1,7 @@
 "use client";
 
 import pinIcon from "@public/pin.svg";
+import salen from "@shared/arenas/salen";
 import type { GridPosition } from "@shared/grid";
 import { formatGridCoordinates, snapToGrid } from "@shared/grid";
 import {
@@ -11,9 +12,10 @@ import {
   PIN_WIDTH_VW,
 } from "@shared/pin";
 import { NextURL } from "next/dist/server/web/next-url";
-import Image, { type StaticImageData } from "next/image";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import ArenaMap from "./arenaMap";
 import DebugOverlay from "./debugOverlay";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
@@ -49,18 +51,12 @@ function getRelativePosition(
 }
 
 type Props = {
-  map: string | StaticImageData;
   arena?: string;
   setUrlAction?: (url: NextURL | undefined) => void;
   position?: GridPosition;
 };
 
-export default function TouchMap({
-  arena,
-  map,
-  setUrlAction,
-  position,
-}: Props) {
+export default function TouchMap({ arena, setUrlAction, position }: Props) {
   const [isMoving, setIsMoving] = useState(false);
   const [current, setCurrent] = useState<GridPosition | undefined>();
 
@@ -202,14 +198,9 @@ export default function TouchMap({
           }}
         />
       </div>
-      <Image
-        priority
-        draggable={false}
-        src={map}
-        alt=""
-        width={868}
-        height={1593}
-        className="pointer-events-none touch-none select-none"
+      <ArenaMap
+        arena={salen}
+        className="pointer-events-none block h-auto w-full max-w-[868px] touch-none select-none"
       />
     </div>
   );

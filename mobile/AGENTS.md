@@ -9,8 +9,9 @@ Open Graph preview; the app also opens `hvor://salen/X<col>Y<row>`.
 
 `metro.config.js` lets Metro read the repo root, so both apps import one copy:
 
-- `@shared/*` → `../shared/` — grid math, `GridPosition`, pin geometry.
-- `@public/*` → `../public/` — the arena map and pin SVGs.
+- `@shared/*` → `../shared/` — grid math, `GridPosition`, pin geometry, and the
+  arena geometry `ArenaMap` draws with `react-native-svg`.
+- `@public/*` → `../public/` — the pin SVG.
 
 `shared/` must stay free of Next.js, React Native and DOM imports. Pin placement mirrors
 `src/components/map/touchMap.tsx` (60 px fingertip lift, the -115% / -150% pin

@@ -66,7 +66,9 @@ src/
   types/              # feedback form types
 updates/              # changelog markdown, named YYYY-MM-DD-slug.md with title/date frontmatter
 public/               # svgs (arena map, logo, pin, payment logos)
-shared/               # used by both apps: grid.ts (grid math, "X10Y15" format, GridPosition), pin.ts (pin geometry)
+shared/               # used by both apps: grid.ts (grid math, "X10Y15" format, GridPosition), pin.ts (pin geometry),
+                      #   arena.ts (arena types + colours), arenas/<name>.ts (generated geometry)
+scripts/              # arena-geometry.mjs: public/arena/<name>.svg -> shared/arenas/<name>.ts
 mobile/               # Expo (React Native) app for iOS + Android — see mobile/AGENTS.md
 ```
 
@@ -91,9 +93,14 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `title` and `date` frontmatter. It is picked up automatically and sorted newest-first.
   `date` may include a time (`2024-11-21T15:00:00`) for precise unread-badge timing;
   a bare date is treated as UTC midnight.
+- **The arena map is drawn from geometry, not an image.** `shared/arenas/salen.ts` is
+  generated from `public/arena/salen.svg` — after re-exporting the SVG, run
+  `npm run arena:build -- salen`; a test fails while they disagree. Colours are
+  `ARENA_COLORS` in `shared/arena.ts`. The web draws it in `map/arenaMap.tsx`, the
+  OG image via `arenaToSvg`, the app in `mobile/src/components/ArenaMap.tsx`.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
-- **`shared/` is code both apps import** (`@shared/*` in each), along with the
-  `public/` SVGs. Keep it free of Next.js, React Native and DOM imports; a push to
+- **`shared/` is code both apps import** (`@shared/*` in each), along with
+  `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to
   `main` touching it ships the mobile app (`mobile/AGENTS.md`).
 
 ## Environment variables
