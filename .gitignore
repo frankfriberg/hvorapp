@@ -46,3 +46,6 @@ next-env.d.ts
 # generated images
 /salen
 .env*.local
+
+# local development database (PGlite)
+/.pglite
