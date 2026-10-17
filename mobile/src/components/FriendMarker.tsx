@@ -1,7 +1,9 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useWindowDimensions } from "react-native";
 import { initials } from "@/lib/friends";
+import Pin from "./Pin";
 
-const SIZE = 30;
+// Dark, so a friend never reads as my own red pin.
+const FRIEND_PIN_COLOR = "#18181b";
 
 type Props = {
   name: string;
@@ -9,41 +11,21 @@ type Props = {
   percentageY: number;
 };
 
-/** A friend's shared seat: their initials in a disc centred on the seat. */
+/** A friend's shared seat: a pin with their initials, its tip on the seat. */
 export default function FriendMarker({
   name,
   percentageX,
   percentageY,
 }: Props) {
+  const { width } = useWindowDimensions();
   return (
-    <View
-      pointerEvents="none"
+    <Pin
+      percentageX={percentageX}
+      percentageY={percentageY}
+      viewportWidth={width}
+      label={initials(name)}
+      color={FRIEND_PIN_COLOR}
       accessibilityLabel={`${name} sitter her`}
-      style={[
-        styles.marker,
-        { left: `${percentageX}%`, top: `${percentageY}%` },
-      ]}
-    >
-      <Text style={styles.initials} numberOfLines={1}>
-        {initials(name)}
-      </Text>
-    </View>
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  marker: {
-    position: "absolute",
-    width: SIZE,
-    height: SIZE,
-    borderRadius: SIZE / 2,
-    marginLeft: -SIZE / 2,
-    marginTop: -SIZE / 2,
-    backgroundColor: "#18181b",
-    borderWidth: 2,
-    borderColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  initials: { color: "#fff", fontSize: 11, fontWeight: "700" },
-});

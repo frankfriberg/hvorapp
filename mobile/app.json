@@ -21,9 +21,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "app.hvor"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "plugins": [
       "expo-router",
       "expo-image",
@@ -39,6 +36,10 @@
     },
     "runtimeVersion": {
       "policy": "fingerprint"
-    }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ]
   }
 }
