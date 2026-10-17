@@ -1,19 +1,19 @@
 "use client";
 
-import { formatGridCoordinates, snapToGrid } from "@/lib/grid";
+import pinIcon from "@public/pin.svg";
+import type { GridPosition } from "@shared/grid";
+import { formatGridCoordinates, snapToGrid } from "@shared/grid";
 import {
   PIN_COLOR,
   PIN_DOT_TRANSFORM,
   PIN_DOT_VW,
   PIN_ICON_TRANSFORM,
   PIN_WIDTH_VW,
-} from "@/lib/pin";
-import { cn } from "@/lib/utils";
-import type { GridPosition } from "@/types/grid";
-import pinIcon from "@public/pin.svg";
+} from "@shared/pin";
 import { NextURL } from "next/dist/server/web/next-url";
 import Image, { type StaticImageData } from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 import DebugOverlay from "./debugOverlay";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip

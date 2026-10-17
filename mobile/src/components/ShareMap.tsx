@@ -1,6 +1,6 @@
+import type { GridPosition } from "@shared/grid";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import type { GridPosition } from "../../../src/types/grid";
 import ShareButton from "./ShareButton";
 import TouchMap from "./TouchMap";
 

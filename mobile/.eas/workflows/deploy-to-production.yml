@@ -9,9 +9,7 @@ on:
     branches: ["main"]
     paths:
       - mobile/**
-      - src/lib/grid.ts
-      - src/lib/pin.ts
-      - src/types/grid.ts
+      - shared/**
       - public/pin.svg
       - public/arena/**
 

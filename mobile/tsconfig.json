@@ -4,7 +4,7 @@
     "strict": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../src/lib/*"],
+      "@shared/*": ["../shared/*"],
       "@public/*": ["../public/*"]
     }
   },

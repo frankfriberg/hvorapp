@@ -38,8 +38,8 @@ npm run format    # biome format --write
 npm run typecheck # tsc --noEmit
 ```
 
-Tests run on **Vitest** (`npm test`); `src/lib/grid.ts` is covered by
-`src/lib/grid.test.ts`. There is no CI config in the repo. Biome is the only
+Tests run on **Vitest** (`npm test`); `shared/grid.ts` is covered by
+`shared/grid.test.ts`. There is no CI config in the repo. Biome is the only
 linter/formatter — there is no ESLint or Prettier.
 
 ## Layout
@@ -61,12 +61,12 @@ src/
     updates/          # markAsReadOnView
     ui/               # shadcn primitives
   lib/
-    grid.ts           # grid math: snap, grid<->percentage, parse/format "X10Y15"
     updates.ts        # reads updates/*.md via gray-matter (server-only, uses node:fs)
     utils.ts          # cn() classname helper
-  types/              # shared types (grid, feedback)
+  types/              # feedback form types
 updates/              # changelog markdown, named YYYY-MM-DD-slug.md with title/date frontmatter
 public/               # svgs (arena map, logo, pin, payment logos)
+shared/               # used by both apps: grid.ts (grid math, "X10Y15" format, GridPosition), pin.ts (pin geometry)
 mobile/               # Expo (React Native) app for iOS + Android — see mobile/AGENTS.md
 ```
 
@@ -76,7 +76,7 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
 
 - **Grid coordinates** are the core primitive. Locations serialize as `X<col>Y<row>`
   (e.g. `X16Y30`). Use `parseGridCoordinates` / `formatGridCoordinates` in
-  `src/lib/grid.ts` — never hand-roll the format. Grid is 48×90 (`gridMultiplier * aspectRatio`).
+  `shared/grid.ts` — never hand-roll the format. Grid is 48×90 (`gridMultiplier * aspectRatio`).
 - **Server vs client:** `src/lib/updates.ts` uses `node:fs` and is server-only —
   never import it into a client component. Map components are `"use client"` because
   they need pointer/touch events and `window`.
@@ -92,9 +92,9 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `date` may include a time (`2024-11-21T15:00:00`) for precise unread-badge timing;
   a bare date is treated as UTC midnight.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
-- **The mobile app imports `src/lib/grid.ts`, `src/lib/pin.ts`, `src/types/grid.ts`
-  and the `public/` SVGs.** Keep them free of Next.js and DOM imports; a push to
-  `main` touching them ships the app (`mobile/AGENTS.md`).
+- **`shared/` is code both apps import** (`@shared/*` in each), along with the
+  `public/` SVGs. Keep it free of Next.js, React Native and DOM imports; a push to
+  `main` touching it ships the mobile app (`mobile/AGENTS.md`).
 
 ## Environment variables
 

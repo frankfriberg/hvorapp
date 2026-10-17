@@ -1,3 +1,4 @@
+import type { GridPosition } from "@shared/grid";
 import { formatGridCoordinates, snapToGrid } from "@shared/grid";
 import { PIN_COLOR, PIN_DOT_VW, PIN_WIDTH_VW } from "@shared/pin";
 import { Image } from "expo-image";
@@ -8,7 +9,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import type { GridPosition } from "../../../src/types/grid";
 import { locationUrl } from "@/lib/links";
 
 const arenaMap = require("@public/arena/salen.svg");

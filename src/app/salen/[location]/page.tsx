@@ -1,7 +1,7 @@
-import ShareMap from "@/components/map/shareMap";
-import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
 import Salen from "@public/arena/salen.svg";
+import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
 import type { Metadata } from "next";
+import ShareMap from "@/components/map/shareMap";
 
 type Props = {
   params: Promise<{ location: string }>;

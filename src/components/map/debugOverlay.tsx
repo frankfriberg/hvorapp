@@ -1,6 +1,6 @@
 "use client";
 
-import type { GridPosition } from "@/types/grid";
+import type { GridPosition } from "@shared/grid";
 
 export default function DebugOverlay({ current }: { current?: GridPosition }) {
   if (!current) return null;

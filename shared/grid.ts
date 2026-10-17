@@ -47,3 +47,10 @@ export function parseGridCoordinates(
 export function formatGridCoordinates(gridX: number, gridY: number): string {
   return `X${gridX}Y${gridY}`;
 }
+
+export type GridPosition = {
+  gridX: number;
+  gridY: number;
+  percentageX: number;
+  percentageY: number;
+};

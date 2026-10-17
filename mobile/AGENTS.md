@@ -7,14 +7,12 @@ Open Graph preview; the app also opens `hvor://salen/X<col>Y<row>`.
 
 ## Shared with the web app
 
-`metro.config.js` lets Metro read the repo root, so the app imports the web
-app's code instead of copying it:
+`metro.config.js` lets Metro read the repo root, so both apps import one copy:
 
-- `@shared/grid`, `@shared/pin` → `../src/lib/` — grid math and pin geometry.
+- `@shared/*` → `../shared/` — grid math, `GridPosition`, pin geometry.
 - `@public/*` → `../public/` — the arena map and pin SVGs.
-- `src/types/grid.ts` by relative path.
 
-Anything shared must stay free of Next.js and DOM imports. Pin placement mirrors
+`shared/` must stay free of Next.js, React Native and DOM imports. Pin placement mirrors
 `src/components/map/touchMap.tsx` (60 px fingertip lift, the -115% / -150% pin
 lifts); change one and change the other.
 
