@@ -1,13 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { User } from "@shared/api";
 import type { Db } from "./db";
 
 export type Provider = "apple" | "google" | "dev";
 
-export type User = {
-  id: string;
-  name: string;
-  inviteCode: string;
-};
+export type { User };
 
 type UserRow = { id: string; name: string; invite_code: string };
 

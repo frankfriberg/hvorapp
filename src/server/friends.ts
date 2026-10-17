@@ -1,8 +1,6 @@
+import type { Person, RequestResult, Seat } from "@shared/api";
 import { userByInviteCode } from "./accounts";
 import type { Db } from "./db";
-import type { Seat } from "./shares";
-
-export type Person = { id: string; name: string };
 
 export type Friend = Person & {
   /** Their seat, while they share one. */
@@ -38,13 +36,6 @@ async function befriend(db: Db, a: string, b: string) {
     pair(a, b),
   );
 }
-
-export type RequestResult =
-  | { status: "requested"; to: Person }
-  | { status: "friends"; with: Person }
-  | { status: "already-friends"; with: Person }
-  | { status: "own-link" }
-  | { status: "unknown-link" };
 
 /**
  * Asks the owner of `inviteCode` to be friends. If they had already asked me,

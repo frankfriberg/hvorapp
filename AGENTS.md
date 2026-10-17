@@ -118,6 +118,26 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to
   `main` touching it ships the mobile app (`mobile/AGENTS.md`).
 
+## Friends and sharing
+
+The API in `src/app/api/` serves the mobile app; route handlers stay thin and
+call `src/server/` (accounts, friends, shares), which takes a `Db` so tests
+run it on an in-memory PGlite (`src/server/friends.test.ts`).
+
+- **Sign-in:** the app signs in with Apple or Google natively and posts the ID
+  token; `server/identity.ts` verifies it against the provider's keys and
+  `/api/auth/*` returns a session token (stored as its SHA-256). Requests carry
+  `Authorization: Bearer <token>`.
+- **Friends:** everyone has an invite link, `https://hvor.app/venn/<code>`.
+  Opening it sends its owner a request to accept; if they had already asked
+  you, it makes you friends. `/venn/[code]` is the page a browser lands on.
+- **Shares:** one row per person and kind in `shares`; a seat is visible to
+  friends for `SEAT_SHARE_HOURS` (4). Hotel rooms are meant to be the next kind.
+- **Wire types** live in `shared/api.ts`, imported by the server and the app.
+- **Schema:** `db/migrations/*.sql`, applied in order by `npm run db:migrate`
+  (production) or automatically on start (local PGlite). Add a new file;
+  never edit an applied one.
+
 ## Environment variables
 
 No `.env.example` exists; these are read at runtime:
@@ -128,6 +148,10 @@ No `.env.example` exists; these are read at runtime:
 | `LINEAR_ISSUE_EMAIL` | `actions/feedback.ts` | destination address for feedback |
 | `NEXT_PUBLIC_VIPPS_URL` | `home/menu.tsx` | optional support link |
 | `NEXT_PUBLIC_MOBILEPAY_URL` | `home/menu.tsx` | optional support link |
+| `DATABASE_URL` | `server/db.ts` | Postgres (Vercel Postgres). Unset in development: a local PGlite in `.pglite/` is used |
+| `APPLE_AUDIENCES` | `server/identity.ts` | accepted Sign in with Apple audiences; default `app.hvor` |
+| `GOOGLE_CLIENT_IDS` | `server/identity.ts` | comma-separated Google OAuth client ids (iOS, Android, web) |
+| `HVOR_DEV_AUTH` | `api/auth/dev` | `1` enables name-only sign-in for development; never in production |
 
 ## Gotchas
 

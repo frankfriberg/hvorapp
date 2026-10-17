@@ -1,16 +1,11 @@
+import { ARENAS, type Seat } from "@shared/api";
 import { columns, rows } from "@shared/grid";
 import type { Db } from "./db";
 
 /** How long a shared seat stays visible to friends. */
 export const SEAT_SHARE_HOURS = 4;
 
-export const ARENAS = ["salen"] as const;
-
-export type Seat = {
-  arena: (typeof ARENAS)[number];
-  gridX: number;
-  gridY: number;
-};
+export type { Seat };
 
 /** A seat from untrusted input, or null when it isn't one. */
 export function parseSeat(input: unknown): Seat | null {
