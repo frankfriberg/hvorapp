@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 import { locationUrl } from "@/lib/links";
 import { useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
-import FriendMarker from "./FriendMarker";
+import FriendPin from "./FriendPin";
 import RoundButton from "./RoundButton";
 import ShareCard from "./ShareCard";
 import TouchMap from "./TouchMap";
@@ -76,7 +76,7 @@ export default function ShareMap({
       seat.gridY,
     );
     return (
-      <FriendMarker
+      <FriendPin
         key={id}
         name={name}
         percentageX={percentageX}

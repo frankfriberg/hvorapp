@@ -41,7 +41,7 @@ export const initials = (name: string) =>
     .map((part) => part[0].toUpperCase())
     .join("") || "?";
 
-// Friend pin colours: none near my own pin's red (#E45F53) or the map's row
+// Friend pin colours: none near the location pin's red (#E45F53) or the map's row
 // blue (#7299d6), and each dark enough for white initials (≥ 4.5:1).
 const FRIEND_COLORS = [
   "#0f766e", // teal

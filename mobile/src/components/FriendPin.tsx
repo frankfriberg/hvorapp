@@ -1,4 +1,3 @@
-import { PIN_WIDTH_VW } from "@shared/pin";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Svg, { Path, Text as SvgText } from "react-native-svg";
 import { colorForInitials, initials } from "@/lib/friends";
@@ -12,6 +11,9 @@ const BOX = { width: 100, height: 128 };
 const HEAD = { x: 50, y: 50 };
 const TIP = { x: 50, y: 128 };
 
+/** Width of a friend pin, as a percentage of the window's width. */
+const FRIEND_PIN_WIDTH_VW = 10;
+
 type Props = {
   name: string;
   percentageX: number;
@@ -19,17 +21,13 @@ type Props = {
 };
 
 /**
- * A friend's shared seat: a teardrop with their initials, coloured by them,
- * whose tip is on the seat. Sized like my own pin.
+ * A friend pin: a teardrop with the friend's initials, coloured by them, whose
+ * tip is on their shared seat.
  */
-export default function FriendMarker({
-  name,
-  percentageX,
-  percentageY,
-}: Props) {
+export default function FriendPin({ name, percentageX, percentageY }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const label = initials(name);
-  const width = (windowWidth * PIN_WIDTH_VW) / 100;
+  const width = (windowWidth * FRIEND_PIN_WIDTH_VW) / 100;
   const scale = width / BOX.width;
 
   return (
