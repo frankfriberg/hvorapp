@@ -3,10 +3,25 @@
 Guidance for AI coding agents working in this repo. Keep it current when the
 architecture changes.
 
+## What this is for
+
+Hvor is built for **Oslofjord Convention Center** (Stokke, Norway): a conference
+venue with several halls and a large hotel complex. People at a conference use it
+to tell friends where they are.
+
+- **Hvor sitter du?** ("Where are you sitting?") — your seat in a hall. Built.
+- **Friends** — add friends through a link; your shared seat is visible to them
+  in the app. Next.
+- **Hvor bor du?** ("Where are you staying?") — your hotel room, shared with
+  friends for a limited time, on the same friends-and-sharing system. Later.
+
+`salen` is one of the venue's halls; more halls are expected, which is why maps
+are keyed by arena.
+
 ## What this is
 
-**Hvor** ("Where") is a small Next.js app that lets people share where they are
-sitting in an arena. A user drags a pin onto an arena map, gets a shareable URL
+**Hvor** ("Where") is a Next.js web app and an Expo app (`mobile/`) that let
+people share where they are sitting in an arena. A user drags a pin onto an arena map, gets a shareable URL
 (`/salen/X<col>Y<row>`), and shares it via the Web Share API. Opening that URL
 renders the map with the pin placed, and social/link previews show a generated
 Open Graph image of the same map + pin. There is also an updates/changelog feed
