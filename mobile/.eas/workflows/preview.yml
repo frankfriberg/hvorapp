@@ -1,0 +1,20 @@
+# Manual: an internal-distribution build of both platforms for testing on
+# real devices before anything reaches the stores.
+name: Preview build
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_android:
+    name: Build Android
+    type: build
+    params:
+      platform: android
+      profile: preview
+  build_ios:
+    name: Build iOS
+    type: build
+    params:
+      platform: ios
+      profile: preview

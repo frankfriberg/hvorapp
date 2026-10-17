@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { cache } from "react";
 import matter from "gray-matter";
 
 export interface Update {
@@ -14,62 +15,44 @@ const updatesDirectory = path.join(process.cwd(), "updates");
 /**
  * Retrieves all updates from the markdown files in the updates directory.
  *
- * Reads all `.md` files from the `/updates` directory at the project root,
- * parses their frontmatter (title, date) and content, and returns them as
- * an array of Update objects sorted by date in descending order (newest first).
+ * Reads every `.md` file in `/updates`, parses frontmatter (`title`, `date`)
+ * and content, and returns them sorted by date descending (newest first).
+ * Files missing a string `title` or `date` are skipped with a warning.
  *
- * @returns {Update[]} Array of update objects sorted by date (newest first)
- *
- * @example
- * ```tsx
- * const updates = getUpdates();
- * // Returns:
- * // [
- * //   {
- * //     slug: "2024-11-21-welcome",
- * //     title: "Velkommen til Hvor!",
- * //     date: "2024-11-21",
- * //     content: "Markdown content..."
- * //   },
- * //   ...
- * // ]
- * ```
+ * Wrapped in React `cache()` so the directory is read at most once per request
+ * even though it is consumed both in the root layout (for the unread badge) and
+ * on the `/updates` page. Server-side only (uses `node:fs`).
  *
  * @remarks
- * - Expects markdown files to have frontmatter with `title` and `date` fields
  * - File naming convention: `YYYY-MM-DD-slug.md`
- * - Date format in frontmatter should be `YYYY-MM-DD`
- * - This function runs at build time (server-side only)
- *
- * @throws {Error} If the updates directory doesn't exist or files cannot be read
+ * - `date` may include a time component for precise unread-badge timing.
  */
-export function getUpdates(): Update[] {
+export const getUpdates = cache((): Update[] => {
   const fileNames = fs.readdirSync(updatesDirectory);
-  const allUpdates = fileNames
+
+  return fileNames
     .filter((fileName) => fileName.endsWith(".md"))
-    .map((fileName) => {
+    .map((fileName): Update | null => {
       const slug = fileName.replace(/\.md$/, "");
-
       const fullPath = path.join(updatesDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
+      const { data, content } = matter(fs.readFileSync(fullPath, "utf8"));
 
-      const { data, content } = matter(fileContents);
+      if (typeof data.title !== "string" || typeof data.date !== "string") {
+        console.warn(
+          `Skipping update "${fileName}": missing "title" or "date" frontmatter.`,
+        );
+        return null;
+      }
 
-      return {
-        slug,
-        title: data.title,
-        date: data.date,
-        content,
-      };
+      return { slug, title: data.title, date: data.date, content };
+    })
+    .filter((update): update is Update => update !== null)
+    .sort((a, b) => {
+      if (a.date < b.date) return 1;
+      if (a.date > b.date) return -1;
+      return 0;
     });
-
-  return allUpdates.sort((a, b) => {
-    if (a.date < b.date) {
-      return 1;
-    }
-    return -1;
-  });
-}
+});
 
 /**
  * Gets the latest update.
@@ -82,10 +65,10 @@ export function getLatestUpdate(): Update | null {
 }
 
 /**
- * Server-side utility to check if user has read the latest update.
- * Compares the date of the latest update with the timestamp of the last visit to /updates.
+ * Server-side utility to check if the user has read the latest update.
+ * Compares the latest update's date with the last-visit timestamp cookie.
  *
- * @returns {boolean} True if user has read the update, false if there's an unread update
+ * @returns {boolean} True if there is an unread update, false otherwise
  */
 export function hasUnreadUpdates(
   latestUpdate: Update | null,

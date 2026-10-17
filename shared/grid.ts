@@ -4,14 +4,6 @@ export const aspectRatio = { width: 8, height: 15 };
 export const columns = gridMultiplier * aspectRatio.width;
 export const rows = gridMultiplier * aspectRatio.height;
 
-export function getGridDimensions() {
-  return {
-    columns,
-    rows,
-    totalCells: columns * rows,
-  };
-}
-
 export function getCellSize(containerWidth: number, containerHeight: number) {
   return {
     width: containerWidth / columns,
@@ -33,31 +25,10 @@ export function snapToGrid(
   return { x: snappedX, y: snappedY };
 }
 
-export function gridToPosition(
-  gridX: number,
-  gridY: number,
-  containerWidth: number,
-  containerHeight: number,
-) {
-  const cellSize = getCellSize(containerWidth, containerHeight);
-
-  const x = gridX * cellSize.width;
-  const y = gridY * cellSize.height;
-
-  return { x, y };
-}
-
 export function gridToPercentage(gridX: number, gridY: number) {
   return {
     percentageX: (gridX / columns) * 100,
     percentageY: (gridY / rows) * 100,
-  };
-}
-
-export function percentageToGrid(xPercent: number, yPercent: number) {
-  return {
-    x: Math.round(xPercent * columns),
-    y: Math.round(yPercent * rows),
   };
 }
 
@@ -76,3 +47,10 @@ export function parseGridCoordinates(
 export function formatGridCoordinates(gridX: number, gridY: number): string {
   return `X${gridX}Y${gridY}`;
 }
+
+export type GridPosition = {
+  gridX: number;
+  gridY: number;
+  percentageX: number;
+  percentageY: number;
+};

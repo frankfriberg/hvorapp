@@ -1,7 +1,18 @@
-import { ImageResponse } from "next/og";
-import { gridToPercentage, parseGridCoordinates } from "@/lib/grid";
+// biome-ignore-all lint/performance/noImgElement: next/og (Satori) renders with plain <img>; next/image is not supported in ImageResponse.
+
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { arenaToSvg } from "@shared/arena";
+import salen from "@shared/arenas/salen";
+import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
+import {
+  PIN_COLOR,
+  PIN_DOT_TRANSFORM,
+  PIN_DOT_VW,
+  PIN_ICON_TRANSFORM,
+  PIN_WIDTH_VW,
+} from "@shared/pin";
+import { ImageResponse } from "next/og";
 
 export const alt = "Jeg sitter her!";
 export const size = {
@@ -42,11 +53,6 @@ export default async function Image({ params }: Props) {
 
   const { percentageX, percentageY } = gridToPercentage(coords.x, coords.y);
 
-  const mapData = await readFile(
-    join(process.cwd(), "public/arena/salen.svg"),
-    "base64",
-  );
-
   const pinData = await readFile(
     join(process.cwd(), "public/pin.svg"),
     "base64",
@@ -57,7 +63,7 @@ export default async function Image({ params }: Props) {
     "base64",
   );
 
-  const mapSource = `data:image/svg+xml;base64,${mapData}`;
+  const mapSource = `data:image/svg+xml;base64,${Buffer.from(arenaToSvg(salen)).toString("base64")}`;
   const pinSource = `data:image/svg+xml;base64,${pinData}`;
   const logoSource = `data:image/svg+xml;base64,${logoData}`;
 
@@ -105,7 +111,7 @@ export default async function Image({ params }: Props) {
               display: "flex",
               flexDirection: "column",
               position: "absolute",
-              width: "10vw",
+              width: `${PIN_WIDTH_VW}vw`,
               left: `${percentageX}%`,
               top: `${percentageY}%`,
             }}
@@ -115,16 +121,16 @@ export default async function Image({ params }: Props) {
               alt="Pin"
               style={{
                 position: "absolute",
-                transform: "translate(-50%, -115%)",
+                transform: PIN_ICON_TRANSFORM,
               }}
             />
             <div
               style={{
-                width: "1.5vw",
-                height: "1.5vw",
-                transform: "translate(-50%, -50%)",
+                width: `${PIN_DOT_VW}vw`,
+                height: `${PIN_DOT_VW}vw`,
+                transform: PIN_DOT_TRANSFORM,
                 borderRadius: "100%",
-                backgroundColor: "#E45F53",
+                backgroundColor: PIN_COLOR,
               }}
             />
           </div>
