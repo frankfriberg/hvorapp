@@ -17,6 +17,16 @@ Open Graph preview; the app also opens `hvor://salen/X<col>Y<row>`.
 `src/components/map/touchMap.tsx` (60 px fingertip lift, the -115% / -150% pin
 lifts); change one and change the other.
 
+## Sharing
+
+The share button sends an image with the link as its caption, so a chat shows
+the seat without waiting for a link preview. `ShareCard` (map, pin, banner) is
+laid out off-screen and captured with `react-native-view-shot`, then sent with
+`react-native-share`. Where either isn't linked — Expo Go — it falls back to
+sharing the link alone; test image sharing in a development build
+(`npx expo run:ios`). The banner's text and colours are `SHARE_BANNER` in
+`src/lib/banner.ts`.
+
 ## Releasing
 
 EAS builds, signs and submits; nothing is built locally.
