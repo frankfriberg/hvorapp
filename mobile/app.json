@@ -9,7 +9,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.hvor",
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
