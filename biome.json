@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/.next/**/*", "!**/.vercel/**/*", "!public"]
+    "includes": ["**", "!**/.next/**/*", "!**/.vercel/**/*", "!public", "!mobile/assets", "!mobile/.expo"]
   },
   "css": {
     "parser": {

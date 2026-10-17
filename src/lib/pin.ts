@@ -1,9 +1,10 @@
 /**
  * Single source of truth for how the location pin is drawn.
  *
- * The pin is rendered in two places that must look identical:
+ * The pin is rendered in three places that must look identical:
  * - `src/components/map/touchMap.tsx` (interactive, in the browser)
  * - `src/app/salen/[location]/opengraph-image.tsx` (static, via next/og)
+ * - `mobile/src/components/TouchMap.tsx` (the iOS + Android app)
  *
  * Both consume these constants so the geometry can only be changed in one
  * place. Sizes are expressed in `vw` because it is the one unit that resolves

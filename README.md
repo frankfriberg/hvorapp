@@ -8,6 +8,11 @@ a generated Open Graph image of the same map + pin.
 Built with Next.js (App Router, React 19), Tailwind CSS, and shadcn/ui. UI text
 is in Norwegian.
 
+## Mobile app
+
+`mobile/` is the iOS + Android app (Expo). `cd mobile && npm install && npx expo start`.
+Releases go through EAS — see [`mobile/AGENTS.md`](./mobile/AGENTS.md).
+
 ## Getting Started
 
 ```bash

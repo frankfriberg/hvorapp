@@ -67,6 +67,7 @@ src/
   types/              # shared types (grid, feedback)
 updates/              # changelog markdown, named YYYY-MM-DD-slug.md with title/date frontmatter
 public/               # svgs (arena map, logo, pin, payment logos)
+mobile/               # Expo (React Native) app for iOS + Android — see mobile/AGENTS.md
 ```
 
 Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
@@ -91,6 +92,9 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `date` may include a time (`2024-11-21T15:00:00`) for precise unread-badge timing;
   a bare date is treated as UTC midnight.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
+- **The mobile app imports `src/lib/grid.ts`, `src/lib/pin.ts`, `src/types/grid.ts`
+  and the `public/` SVGs.** Keep them free of Next.js and DOM imports; a push to
+  `main` touching them ships the app (`mobile/AGENTS.md`).
 
 ## Environment variables
 
