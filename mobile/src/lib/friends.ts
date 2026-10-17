@@ -40,3 +40,23 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((part) => part[0].toUpperCase())
     .join("") || "?";
+
+// Friend pin colours: none near my own pin's red (#E45F53) or the map's row
+// blue (#7299d6), and each dark enough for white initials (≥ 4.5:1).
+const FRIEND_COLORS = [
+  "#0f766e", // teal
+  "#7c3aed", // violet
+  "#b45309", // amber
+  "#15803d", // green
+  "#be185d", // pink
+  "#4338ca", // indigo
+  "#0e7490", // cyan
+  "#334155", // slate
+];
+
+/** A friend's pin colour, fixed by their initials. */
+export function colorForInitials(letters: string): string {
+  let hash = 0;
+  for (const char of letters) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return FRIEND_COLORS[hash % FRIEND_COLORS.length];
+}
