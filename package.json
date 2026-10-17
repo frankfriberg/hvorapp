@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "arena:build": "node scripts/arena-geometry.mjs"
+    "arena:build": "node scripts/arena-geometry.mjs",
+    "db:migrate": "node scripts/db-migrate.mts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",
@@ -22,19 +23,23 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gray-matter": "^4.0.3",
+    "jose": "^6.2.12",
     "lucide-react": "^1.25.0",
     "next": "16.2.11",
+    "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "resend": "^6.18.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.5",
+    "@electric-sql/pglite": "^0.5.10",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.1.1",
     "@types/react": "19.2.17",

@@ -35,6 +35,7 @@ Open [http://localhost:9100](http://localhost:9100).
 | `npm run typecheck` | Type-check with `tsc --noEmit` |
 | `npm test` | Run the Vitest test suite |
 | `npm run test:watch` | Run Vitest in watch mode |
+| `npm run db:migrate` | Apply `db/migrations` to `DATABASE_URL` |
 | `npm run arena:build -- salen` | Regenerate `shared/arenas/salen.ts` from `public/arena/salen.svg` |
 
 Biome handles both linting and formatting — there is no ESLint or Prettier.
@@ -47,6 +48,10 @@ Biome handles both linting and formatting — there is no ESLint or Prettier.
 | `LINEAR_ISSUE_EMAIL` | feedback form | destination address for feedback |
 | `NEXT_PUBLIC_VIPPS_URL` | nav menu | optional support link |
 | `NEXT_PUBLIC_MOBILEPAY_URL` | nav menu | optional support link |
+| `DATABASE_URL` | friends API | Postgres (Vercel Postgres). Unset in development: a local PGlite in `.pglite/` is used |
+| `APPLE_AUDIENCES` | sign-in | accepted Sign in with Apple audiences; default `app.hvor` |
+| `GOOGLE_CLIENT_IDS` | sign-in | comma-separated Google OAuth client ids (iOS, Android, web) |
+| `HVOR_DEV_AUTH` | sign-in | `1` enables name-only sign-in for development; never in production |
 
 ## Updates / Changelog
 

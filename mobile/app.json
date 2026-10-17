@@ -8,7 +8,11 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "app.hvor"
+      "bundleIdentifier": "app.hvor",
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,10 +24,12 @@
       "predictiveBackGestureEnabled": false,
       "package": "app.hvor"
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": ["expo-router", "expo-image"],
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-secure-store",
+      "expo-apple-authentication"
+    ],
     "scheme": "hvor",
     "experiments": {
       "typedRoutes": true
@@ -33,6 +39,10 @@
     },
     "runtimeVersion": {
       "policy": "fingerprint"
-    }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ]
   }
 }
