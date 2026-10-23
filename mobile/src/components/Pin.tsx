@@ -1,4 +1,5 @@
 import { PIN_COLOR, PIN_DOT_VW, PIN_WIDTH_VW } from "@shared/pin";
+import { Image } from "expo-image";
 import { useContext, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import Animated, {
@@ -10,6 +11,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
+import { webUrl } from "@/lib/api";
 import { initials } from "@/lib/friends";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
@@ -39,6 +41,9 @@ const PIN_LIFT_MOVING = 1.5;
 const HEAD_R = 48;
 const TIP_R = 6;
 const AXIS = TEARDROP_BOX.height - TIP_R - TEARDROP_HEAD.y;
+// How far in from the head's edge a profile photo stops, in drawing units:
+// a ring of the pin's colour round it.
+const PHOTO_INSET = 5;
 // How far away the eye is, in drawing units: a head tipped towards you grows.
 const EYE = 400;
 // Half the canvas the pin is drawn on around its pivot, room for any lean.
@@ -51,6 +56,20 @@ const SHADOW_LENGTH = 0.7;
 const SHADOW_LIFTED_OPACITY = 0.5;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+/**
+ * How big a pin at rest is on screen, in points: its width and height, and
+ * how far above its point its tip floats.
+ */
+export function pinSize(viewportWidth: number, scale = 1) {
+  const height =
+    ((viewportWidth * PIN_WIDTH_VW) / 100) * WEB_PIN_ASPECT * scale;
+  return {
+    width: (height * TEARDROP_BOX.width) / TEARDROP_BOX.height,
+    height,
+    float: height * (PIN_LIFT_AT_REST - 1),
+  };
+}
 
 /**
  * Where the pin's head falls on screen, how big it looks, and the outline
@@ -162,11 +181,13 @@ type Props = {
   /** How far the pin tips towards (−) or away from (+) you, in radians. */
   pitch?: SharedValue<number>;
   /** Whose pin: their initials on it, in their colour. Mine without it. */
-  owner?: { name: string; color: string };
+  owner?: { name: string; color: string; avatarUrl?: string | null };
   /** The dot on the floor under the pin; mine only. */
   dot?: boolean;
   /** How big against my pin. */
   scale?: number;
+  /** The profile photo on the head, where there is one; initials without. */
+  photo?: boolean;
 };
 
 /**
@@ -183,15 +204,13 @@ export default function Pin({
   owner,
   dot: withDot = true,
   scale = 1,
+  photo = true,
 }: Props) {
   const { session } = useSession();
-  const label = owner
-    ? initials(owner.name)
-    : session.status === "signed-in"
-      ? initials(session.user.name)
-      : null;
-  const height =
-    ((viewportWidth * PIN_WIDTH_VW) / 100) * WEB_PIN_ASPECT * scale;
+  const me = session.status === "signed-in" ? session.user : null;
+  const label = owner ? initials(owner.name) : me ? initials(me.name) : null;
+  const avatarUrl = photo ? (owner ? owner.avatarUrl : me?.avatarUrl) : null;
+  const { height } = pinSize(viewportWidth, scale);
   // Screen points per drawing unit.
   const unit = height / TEARDROP_BOX.height;
   const dot = (viewportWidth * PIN_DOT_VW) / 100;
@@ -303,6 +322,19 @@ export default function Pin({
           >
             <Head label={label} />
           </Svg>
+          {avatarUrl && (
+            <Image
+              source={webUrl(avatarUrl)}
+              style={{
+                position: "absolute",
+                left: PHOTO_INSET * unit,
+                top: PHOTO_INSET * unit,
+                width: headSize - 2 * PHOTO_INSET * unit,
+                height: headSize - 2 * PHOTO_INSET * unit,
+                borderRadius: (headSize - 2 * PHOTO_INSET * unit) / 2,
+              }}
+            />
+          )}
         </Animated.View>
       </Animated.View>
       {withDot && (

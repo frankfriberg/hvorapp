@@ -1,5 +1,10 @@
 import type { Person, RequestResult, Seat } from "@shared/api";
-import { userByInviteCode } from "./accounts";
+import {
+  PERSON_COLUMNS,
+  type PersonRow,
+  toPerson,
+  userByInviteCode,
+} from "./accounts";
 import type { Db } from "./db";
 
 export type Friend = Person & {
@@ -50,7 +55,7 @@ export async function requestFriend(
   if (!owner) return { status: "unknown-link" };
   if (owner.id === fromId) return { status: "own-link" };
 
-  const to = { id: owner.id, name: owner.name };
+  const to = { id: owner.id, name: owner.name, avatarUrl: owner.avatarUrl };
   if (await areFriends(db, fromId, owner.id)) {
     return { status: "already-friends", with: to };
   }
@@ -110,9 +115,7 @@ export async function unfriend(
   );
 }
 
-type FriendRow = {
-  id: string;
-  name: string;
+type FriendRow = PersonRow & {
   place: Seat | null;
   shared_at: Date | null;
   expires_at: Date | null;
@@ -124,7 +127,7 @@ export async function listFriends(
   now: Date = new Date(),
 ): Promise<Friends> {
   const friendRows = await db.query<FriendRow>(
-    `SELECT u.id, u.name, s.place, s.shared_at, s.expires_at
+    `SELECT ${PERSON_COLUMNS}, s.place, s.shared_at, s.expires_at
      FROM friendships f
      JOIN users u ON u.id = CASE WHEN f.user_a = $1 THEN f.user_b ELSE f.user_a END
      LEFT JOIN shares s ON s.user_id = u.id AND s.kind = 'seat' AND s.expires_at > $2
@@ -132,21 +135,20 @@ export async function listFriends(
      ORDER BY u.name`,
     [userId, now],
   );
-  const incoming = await db.query<Person>(
-    `SELECT u.id, u.name FROM friend_requests r JOIN users u ON u.id = r.from_user
+  const incoming = await db.query<PersonRow>(
+    `SELECT ${PERSON_COLUMNS} FROM friend_requests r JOIN users u ON u.id = r.from_user
      WHERE r.to_user = $1 ORDER BY r.created_at`,
     [userId],
   );
-  const outgoing = await db.query<Person>(
-    `SELECT u.id, u.name FROM friend_requests r JOIN users u ON u.id = r.to_user
+  const outgoing = await db.query<PersonRow>(
+    `SELECT ${PERSON_COLUMNS} FROM friend_requests r JOIN users u ON u.id = r.to_user
      WHERE r.from_user = $1 ORDER BY r.created_at`,
     [userId],
   );
 
   return {
     friends: friendRows.map((row) => ({
-      id: row.id,
-      name: row.name,
+      ...toPerson(row),
       seat:
         row.place && row.shared_at && row.expires_at
           ? {
@@ -156,7 +158,7 @@ export async function listFriends(
             }
           : null,
     })),
-    incoming,
-    outgoing,
+    incoming: incoming.map(toPerson),
+    outgoing: outgoing.map(toPerson),
   };
 }

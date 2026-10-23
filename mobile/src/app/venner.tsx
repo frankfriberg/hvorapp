@@ -2,8 +2,10 @@ import type { Friend, Person } from "@shared/api";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import Avatar from "@/components/Avatar";
 import Button from "@/components/Button";
 import { api } from "@/lib/api";
+import { pickAvatar } from "@/lib/avatar";
 import { useFriends } from "@/lib/friends";
 import { t, time } from "@/lib/i18n";
 import { inviteUrl } from "@/lib/links";
@@ -15,7 +17,7 @@ const seatStatus = (friend: Friend) =>
 
 export default function FriendsScreen() {
   const router = useRouter();
-  const { session, signOut, deleteAccount } = useSession();
+  const { session, signOut, deleteAccount, setAvatar } = useSession();
   const { friends, refresh } = useFriends();
   const theme = useTheme();
   const body = [styles.body, { color: theme.secondaryText }];
@@ -50,6 +52,18 @@ export default function FriendsScreen() {
       },
     ]);
 
+  // Picks a photo and saves it, or removes mine with `remove`.
+  const changeAvatar =
+    (remove = false) =>
+    async () => {
+      try {
+        const photo = remove ? null : await pickAvatar();
+        if (remove || photo) await setAvatar(photo);
+      } catch {
+        Alert.alert(t.couldNotSavePhoto, t.checkNetwork);
+      }
+    };
+
   const confirmDelete = () =>
     Alert.alert(t.deleteAccountTitle, t.deleteAccountBody, [
       { text: t.cancel, style: "cancel" },
@@ -73,7 +87,11 @@ export default function FriendsScreen() {
       {friends && friends.incoming.length > 0 && (
         <Section title={t.wantsToBeFriends}>
           {friends.incoming.map((person) => (
-            <Row key={person.id} name={person.name}>
+            <Row
+              key={person.id}
+              name={person.name}
+              avatarUrl={person.avatarUrl}
+            >
               <Button
                 size="small"
                 label={t.accept}
@@ -97,7 +115,12 @@ export default function FriendsScreen() {
           </View>
         )}
         {friends?.friends.map((friend) => (
-          <Row key={friend.id} name={friend.name} detail={seatStatus(friend)}>
+          <Row
+            key={friend.id}
+            name={friend.name}
+            avatarUrl={friend.avatarUrl}
+            detail={seatStatus(friend)}
+          >
             <Button
               size="small"
               variant="secondary"
@@ -111,7 +134,11 @@ export default function FriendsScreen() {
       {friends && friends.outgoing.length > 0 && (
         <Section title={t.awaitingReply}>
           {friends.outgoing.map((person) => (
-            <Row key={person.id} name={person.name}>
+            <Row
+              key={person.id}
+              name={person.name}
+              avatarUrl={person.avatarUrl}
+            >
               <Button
                 size="small"
                 variant="secondary"
@@ -122,6 +149,20 @@ export default function FriendsScreen() {
           ))}
         </Section>
       )}
+
+      <Section title={t.profilePhoto}>
+        <Row name={user.name} avatarUrl={user.avatarUrl}>
+          <Button size="small" label={t.choosePhoto} onPress={changeAvatar()} />
+          {user.avatarUrl && (
+            <Button
+              size="small"
+              variant="secondary"
+              label={t.removePhoto}
+              onPress={changeAvatar(true)}
+            />
+          )}
+        </Row>
+      </Section>
 
       <View style={styles.account}>
         <Text style={[styles.sectionTitle, { color: theme.tertiaryText }]}>
@@ -155,16 +196,19 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Row({
   name,
+  avatarUrl,
   detail,
   children,
 }: {
   name: string;
+  avatarUrl: string | null;
   detail?: string;
   children?: ReactNode;
 }) {
   const theme = useTheme();
   return (
     <View style={[styles.row, { borderBottomColor: theme.separator }]}>
+      <Avatar name={name} avatarUrl={avatarUrl} size={36} />
       <View style={styles.rowText}>
         <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
         {detail && (

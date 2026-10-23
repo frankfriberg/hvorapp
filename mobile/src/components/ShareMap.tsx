@@ -28,6 +28,7 @@ import { t, time } from "@/lib/i18n";
 import { locationUrl } from "@/lib/links";
 import { useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
+import { SHARING_COLOR } from "@/lib/theme";
 import FloorPoint from "./FloorPoint";
 import FriendPin from "./FriendPin";
 import RoundButton from "./RoundButton";
@@ -45,9 +46,6 @@ const popIn = (index: number) =>
     .duration(180)
     .delay(index * 30);
 const popOut = ZoomOut.duration(90);
-
-// The friends button while my seat is shared with them.
-const SHARING_COLOR = "#16a34a";
 
 /** Asks how long to share my seat for; null when cancelled. */
 function askHours(): Promise<SeatShareHours | null> {
@@ -132,6 +130,8 @@ export default function ShareMap({
   const token = useToken();
   const { width } = useWindowDimensions();
   const [placed, setPlaced] = useState<GridPosition | undefined>();
+  // The friend whose pin was tapped, labelled with their name.
+  const [picked, setPicked] = useState<string | null>(null);
   // When my seat stops being shared with friends, while it is.
   const [sharedUntil, setSharedUntil] = useState<Date | null>(null);
   const card = useRef<ComponentRef<typeof View>>(null);
@@ -193,18 +193,43 @@ export default function ShareMap({
     }
   }
 
-  const overlay = friends.map(({ id, name, seat }) => {
-    if (!seat || seat.arena !== arena) return null;
-    return (
-      <FloorPoint key={id} {...gridToPercentage(seat.gridX, seat.gridY)}>
-        <FriendPin name={name} percentageX={0} percentageY={0} />
+  const seated = friends.flatMap(({ id, name, avatarUrl, seat }) =>
+    seat && seat.arena === arena
+      ? [
+          {
+            id,
+            name,
+            avatarUrl,
+            seat,
+            ...gridToPercentage(seat.gridX, seat.gridY),
+          },
+        ]
+      : [],
+  );
+  // The picked friend last, so their label is over the other pins.
+  const overlay = [...seated]
+    .sort((a, b) => Number(a.id === picked) - Number(b.id === picked))
+    .map(({ id, name, avatarUrl, seat, percentageX, percentageY }) => (
+      <FloorPoint key={id} percentageX={percentageX} percentageY={percentageY}>
+        <FriendPin
+          name={name}
+          avatarUrl={avatarUrl}
+          percentageX={0}
+          percentageY={0}
+          until={id === picked ? time(seat.expiresAt) : undefined}
+        />
       </FloorPoint>
-    );
-  });
+    ));
 
   return (
     <View style={styles.container}>
-      <TouchMap position={position} onPlace={setPlaced} overlay={overlay} />
+      <TouchMap
+        position={position}
+        onPlace={setPlaced}
+        overlay={overlay}
+        friendPins={seated}
+        onTap={(id) => setPicked(id === picked ? null : id)}
+      />
       {placed && (
         // Laid out off-screen so it can be captured without being seen.
         <View style={styles.offscreen} pointerEvents="none">

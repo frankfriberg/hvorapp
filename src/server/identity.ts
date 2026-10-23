@@ -10,7 +10,7 @@ const GOOGLE_KEYS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/oauth2/v3/certs"),
 );
 
-export type Identity = { sub: string; name?: string };
+export type Identity = { sub: string; name?: string; picture?: string };
 
 const list = (value: string | undefined) =>
   (value ?? "")
@@ -44,5 +44,6 @@ export async function verifyGoogleToken(token: string): Promise<Identity> {
   return {
     sub: payload.sub,
     name: typeof payload.name === "string" ? payload.name : undefined,
+    picture: typeof payload.picture === "string" ? payload.picture : undefined,
   };
 }

@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  avatarType,
   createSession,
   deleteAccount,
   endSession,
+  getAvatar,
+  setAvatar,
   signIn,
   type User,
   userForToken,
@@ -71,13 +74,13 @@ describe("friends", () => {
   it("opening an invite link sends a request the owner must accept", async () => {
     expect(await requestFriend(db, bo.id, ada.inviteCode)).toEqual({
       status: "requested",
-      to: { id: ada.id, name: "Ada" },
+      to: { id: ada.id, name: "Ada", avatarUrl: null },
     });
     expect((await listFriends(db, ada.id)).incoming).toEqual([
-      { id: bo.id, name: "Bo" },
+      { id: bo.id, name: "Bo", avatarUrl: null },
     ]);
     expect((await listFriends(db, bo.id)).outgoing).toEqual([
-      { id: ada.id, name: "Ada" },
+      { id: ada.id, name: "Ada", avatarUrl: null },
     ]);
     expect((await listFriends(db, ada.id)).friends).toEqual([]);
 
@@ -169,5 +172,48 @@ describe("shared seats", () => {
     expect(parseShareHours({ ...seat, hours: 4 })).toBe(4);
     expect(parseShareHours({ ...seat, hours: 3 })).toBeNull();
     expect(parseShareHours({ ...seat, hours: "1" })).toBeNull();
+  });
+});
+
+describe("avatars", () => {
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+
+  it("tells JPEG and PNG from anything else by their first bytes", () => {
+    expect(avatarType(jpeg)).toBe("image/jpeg");
+    expect(avatarType(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0]))).toBe(
+      "image/png",
+    );
+    expect(avatarType(new Uint8Array([0x47, 0x49, 0x46]))).toBeNull();
+  });
+
+  it("gives each new photo a new URL, and none once removed", async () => {
+    expect(ada.avatarUrl).toBeNull();
+    const first = await setAvatar(db, ada.id, {
+      bytes: jpeg,
+      type: "image/jpeg",
+    });
+    const second = await setAvatar(db, ada.id, {
+      bytes: jpeg,
+      type: "image/jpeg",
+    });
+    expect(first.avatarUrl).toMatch(`/api/avatars/${ada.id}?v=`);
+    expect(second.avatarUrl).not.toBe(first.avatarUrl);
+    expect(await getAvatar(db, ada.id)).toEqual({
+      bytes: jpeg,
+      type: "image/jpeg",
+    });
+
+    expect((await setAvatar(db, ada.id, null)).avatarUrl).toBeNull();
+    expect(await getAvatar(db, ada.id)).toBeNull();
+  });
+
+  it("shows friends' photos", async () => {
+    await makeFriends();
+    const { avatarUrl } = await setAvatar(db, ada.id, {
+      bytes: jpeg,
+      type: "image/jpeg",
+    });
+    const { friends } = await listFriends(db, bo.id);
+    expect(friends[0].avatarUrl).toBe(avatarUrl);
   });
 });

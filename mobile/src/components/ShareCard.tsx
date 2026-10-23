@@ -33,6 +33,8 @@ export default function ShareCard({ position, ref }: Props) {
             percentageY={position.percentageY}
             // On screen the pin is sized off a window ~1.25× the map's width.
             viewportWidth={(CARD_WIDTH - CARD_PADDING * 2) * 1.25}
+            // A photo might not have loaded when the card is captured.
+            photo={false}
           />
         </View>
         <View

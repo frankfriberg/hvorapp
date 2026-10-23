@@ -16,9 +16,10 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { floorTransform, toFloor, useCompassTurn } from "@/lib/tilt";
+import { floorTransform, toFloor, toScreen, useCompassTurn } from "@/lib/tilt";
 import ArenaMap from "./ArenaMap";
 import FloorPoint, { FloorContext } from "./FloorPoint";
+import { friendPinSize } from "./FriendPin";
 import Pin from "./Pin";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
@@ -42,6 +43,12 @@ const SWING_SETTLE_MS = 3000;
 // How long the pin takes to glide to where the finger is, in ms: a touch away
 // from it slides it over rather than making it jump.
 const GLIDE_MS = 120;
+// Only a finger held still this long (ms) picks the pin up; a quicker touch
+// is a tap, and one that slides off first does nothing.
+const HOLD_MS = 250;
+const HOLD_SLOP_PX = 10;
+// Room around a friend pin that still counts as tapping it, in px.
+const TAP_SLOP_PX = 8;
 
 type Props = {
   position?: GridPosition;
@@ -49,9 +56,19 @@ type Props = {
   onPlace?: (position: GridPosition | undefined) => void;
   /** Drawn over the floor under my pin: friends' seats, as `FloorPoint`s. */
   overlay?: ReactNode;
+  /** The friend pins in `overlay`, by id, for telling which one is tapped. */
+  friendPins?: { id: string; percentageX: number; percentageY: number }[];
+  /** A tap: on a friend pin, its id; anywhere else, null. */
+  onTap?: (id: string | null) => void;
 };
 
-export default function TouchMap({ position, onPlace, overlay }: Props) {
+export default function TouchMap({
+  position,
+  onPlace,
+  overlay,
+  friendPins = [],
+  onTap,
+}: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [isMoving, setIsMoving] = useState(false);
@@ -93,6 +110,14 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
     pitch.value += pitchSpin * dt;
   }, false);
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The touch until it's held long enough to pick the pin up: where it began,
+  // where the finger is now, and the timer that picks the pin up.
+  const press = useRef<{
+    start: { x: number; y: number };
+    at: { x: number; y: number };
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const holding = useRef(false);
 
   const pinX = useSharedValue(position?.percentageX ?? 0);
   const pinY = useSharedValue(position?.percentageY ?? 0);
@@ -138,28 +163,87 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
     };
   }
 
+  /** The friend pin under a point on screen, nearest first, or null. */
+  function friendAt(pageX: number, pageY: number) {
+    const x = pageX - origin.current.x;
+    const y = pageY - origin.current.y;
+    const { width, height, float } = friendPinSize(windowWidth);
+    let nearest: { id: string; distance: number } | null = null;
+    for (const pin of friendPins) {
+      const at = toScreen(turn.value, pin.percentageX, pin.percentageY);
+      const px = (at.percentageX / 100) * size.width;
+      const py = (at.percentageY / 100) * size.height;
+      // The pin stands above its seat, floating a little.
+      const inside =
+        Math.abs(x - px) <= width / 2 + TAP_SLOP_PX &&
+        y <= py - float + TAP_SLOP_PX &&
+        y >= py - float - height - TAP_SLOP_PX;
+      const distance = Math.hypot(x - px, y - (py - float - height / 2));
+      if (inside && (!nearest || distance < nearest.distance)) {
+        nearest = { id: pin.id, distance };
+      }
+    }
+    return nearest?.id ?? null;
+  }
+
   function onGrant(e: GestureResponderEvent) {
     const { pageX, pageY } = e.nativeEvent;
+    // Re-measure on every touch: the map can move with layout changes.
+    viewRef.current?.measureInWindow((x, y) => {
+      origin.current = { x, y };
+    });
+    press.current = {
+      start: { x: pageX, y: pageY },
+      at: { x: pageX, y: pageY },
+      timer: setTimeout(pickUp, HOLD_MS),
+    };
+  }
+
+  function pickUp() {
+    if (!press.current) return;
+    const { x: pageX, y: pageY } = press.current.at;
+    press.current = null;
+    holding.current = true;
     clearTimeout(settle.current);
     finger.value = { x: pageX, y: pageY };
     last.value = { x: pageX, y: pageY, vx: 0, vy: 0 };
     swing.setActive(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Re-measure on every touch: the map can move with layout changes.
-    viewRef.current?.measureInWindow((x, y) => {
-      origin.current = { x, y };
-      setIsMoving(true);
-      moveTo(positionAt(pageX, pageY));
-      onPlace?.(undefined);
-    });
+    setIsMoving(true);
+    moveTo(positionAt(pageX, pageY));
+    onPlace?.(undefined);
   }
 
   function onMove(e: GestureResponderEvent) {
-    finger.value = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
-    moveTo(positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY));
+    const { pageX, pageY } = e.nativeEvent;
+    if (!holding.current) {
+      // Slid away before it was held: not a hold, nor a tap.
+      const touch = press.current;
+      if (!touch) return;
+      touch.at = { x: pageX, y: pageY };
+      if (
+        Math.hypot(pageX - touch.start.x, pageY - touch.start.y) > HOLD_SLOP_PX
+      ) {
+        clearTimeout(touch.timer);
+        press.current = null;
+      }
+      return;
+    }
+    finger.value = { x: pageX, y: pageY };
+    moveTo(positionAt(pageX, pageY));
   }
 
   function onRelease(e: GestureResponderEvent) {
+    if (!holding.current) {
+      const touch = press.current;
+      press.current = null;
+      if (touch) {
+        clearTimeout(touch.timer);
+        onTap?.(friendAt(touch.start.x, touch.start.y));
+      }
+      return;
+    }
+    holding.current = false;
     const placed = positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY);
     moveTo(placed);
     setIsMoving(false);

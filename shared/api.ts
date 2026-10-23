@@ -20,9 +20,20 @@ export type SeatShareHours = (typeof SEAT_SHARE_HOURS)[number];
 /** PUT /api/seat */
 export type ShareSeatRequest = Seat & { hours?: SeatShareHours };
 
-export type User = { id: string; name: string; inviteCode: string };
+export type Person = {
+  id: string;
+  name: string;
+  /**
+   * Their profile photo, as a path under the web app
+   * (`/api/avatars/<id>?v=<n>`), or null without one.
+   */
+  avatarUrl: string | null;
+};
 
-export type Person = { id: string; name: string };
+export type User = Person & { inviteCode: string };
+
+/** PUT /api/me/avatar: a JPEG or PNG body of at most this many bytes. */
+export const AVATAR_MAX_BYTES = 100_000;
 
 export type Friend = Person & {
   /** Their seat, while they share one. */

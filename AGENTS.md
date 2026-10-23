@@ -135,6 +135,10 @@ run it on an in-memory PGlite (`src/server/friends.test.ts`).
   friends for as long as its sharer picks from `SEAT_SHARE_HOURS` in
   `shared/api.ts` (1, 2 or 4 hours; 1 by default). Hotel rooms are meant to
   be the next kind.
+- **Profile photos:** a small JPEG or PNG per person in `users.avatar`, set
+  with `PUT /api/me/avatar` (the app crops it to 256 px) or taken from Google's
+  picture at sign-in; Apple gives none. `GET /api/avatars/<id>?v=<n>` serves
+  it without sign-in, cached for good: the version changes with the photo.
 - **Wire types** live in `shared/api.ts`, imported by the server and the app.
 - **Schema:** `db/migrations/*.sql`, applied in order by `npm run db:migrate`
   (production) or automatically on start (local PGlite). Add a new file;

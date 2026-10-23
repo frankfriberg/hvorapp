@@ -41,6 +41,9 @@ const dark: Theme = {
   arena: ARENA_DARK_PALETTE,
 };
 
+/** Sharing with friends, live: the friends button while I do, a friend's dot. */
+export const SHARING_COLOR = "#16a34a";
+
 const Forced = createContext<Theme | null>(null);
 
 /** The colours to draw with: dark when the phone is, unless forced light. */
