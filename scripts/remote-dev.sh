@@ -89,7 +89,6 @@ start() {
   EXPO_PACKAGER_PROXY_URL="https://$host:$metro_https" \
     EXPO_PUBLIC_API_URL="https://$host:$web_https" \
     EXPO_PUBLIC_DEV_AUTH=1 \
-    CI=1 \
     nohup npx expo start --dev-client --port "$metro_port" --clear \
     >"$state/metro.log" 2>&1 &
   echo $! >"$state/metro.pid"
