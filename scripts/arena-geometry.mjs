@@ -4,7 +4,11 @@
 //
 // The source SVG stays the source: re-export it, then re-run this. Shapes are
 // classified by how the export draws them — stroked paths are outlines, the
-// row colour is a row, any other fill is a marker.
+// row colour is a row, any other fill is a marker. An outline whose id starts
+// with `stage` or `stair` is that part of the stage: stairs lowest step first, numbered down from
+// `stair-1` next to the stage. One with the id `tiers` is the edges of the
+// stepped floor the seats stand on, and one with `tall-tiers` those whose
+// long edges stand twice as tall.
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -19,8 +23,10 @@ export function parseArena(svg) {
     if (!d) throw new Error(`path without d: ${attrs.slice(0, 80)}`);
     const fill = attrs.match(/\bfill="([^"]+)"/)?.[1];
     const stroke = attrs.match(/\bstroke="([^"]+)"/)?.[1];
+    const part = attrs.match(/\bid="(stage|stair|tall-tiers|tiers)/)?.[1];
 
-    if (stroke) return { kind: "outline", d };
+    if (stroke)
+      return part ? { kind: "outline", d, part } : { kind: "outline", d };
     if (fill?.toLowerCase() === ROW_FILL) return { kind: "row", d };
     if (fill) return { kind: "marker", d };
     throw new Error(`path with neither fill nor stroke: ${d.slice(0, 40)}`);
