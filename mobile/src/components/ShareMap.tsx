@@ -1,13 +1,30 @@
-import type { Friend, Seat } from "@shared/api";
+import {
+  type Friend,
+  type MeResponse,
+  SEAT_SHARE_HOURS,
+  type Seat,
+  type SeatShareHours,
+  type ShareSeatRequest,
+} from "@shared/api";
 import {
   formatGridCoordinates,
   type GridPosition,
   gridToPercentage,
 } from "@shared/grid";
+import { PIN_COLOR } from "@shared/pin";
 import { useRouter } from "expo-router";
-import { type ComponentRef, useRef, useState } from "react";
-import { Alert, StyleSheet, useWindowDimensions, View } from "react-native";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
+import {
+  ActionSheetIOS,
+  Alert,
+  Platform,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import Animated, { Easing, Keyframe, ZoomOut } from "react-native-reanimated";
 import { api } from "@/lib/api";
+import { t, time } from "@/lib/i18n";
 import { locationUrl } from "@/lib/links";
 import { useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
@@ -17,23 +34,93 @@ import RoundButton from "./RoundButton";
 import ShareCard from "./ShareCard";
 import TouchMap from "./TouchMap";
 
-const shareIcon = require("../../assets/share.svg");
-const friendsIcon = require("../../assets/users.svg");
+// Grows in over 80 ms, just past full size, and settles back in 100 ms: one
+// small bounce, no wobble.
+const popIn = (index: number) =>
+  new Keyframe({
+    0: { transform: [{ scale: 0 }] },
+    45: { transform: [{ scale: 1.12 }], easing: Easing.out(Easing.quad) },
+    100: { transform: [{ scale: 1 }], easing: Easing.inOut(Easing.quad) },
+  })
+    .duration(180)
+    .delay(index * 30);
+const popOut = ZoomOut.duration(90);
+
+// The friends button while my seat is shared with them.
+const SHARING_COLOR = "#16a34a";
+
+/** Asks how long to share my seat for; null when cancelled. */
+function askHours(): Promise<SeatShareHours | null> {
+  const title = t.shareWithFriendsTitle;
+  const message = t.shareForHowLong;
+  return new Promise((resolve) => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title,
+          message,
+          options: [...SEAT_SHARE_HOURS.map(t.hours), t.cancel],
+          cancelButtonIndex: SEAT_SHARE_HOURS.length,
+        },
+        (index) => resolve(SEAT_SHARE_HOURS[index] ?? null),
+      );
+      return;
+    }
+    // Android shows three buttons at most; tapping outside cancels.
+    Alert.alert(
+      title,
+      message,
+      SEAT_SHARE_HOURS.map((hours) => ({
+        text: t.hours(hours),
+        onPress: () => resolve(hours),
+      })),
+      { cancelable: true, onDismiss: () => resolve(null) },
+    );
+  });
+}
+
+/** Asks whether to stop sharing my seat, shared until `until`. */
+function askStop(until: Date): Promise<boolean> {
+  const title = t.sharedWithFriends;
+  const message = t.theySeeYourSeatUntil(time(until.toISOString()));
+  return new Promise((resolve) => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title,
+          message,
+          options: [t.stopSharing, t.cancel],
+          destructiveButtonIndex: 0,
+          cancelButtonIndex: 1,
+        },
+        (index) => resolve(index === 0),
+      );
+      return;
+    }
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: t.cancel, style: "cancel", onPress: () => resolve(false) },
+        {
+          text: t.stopSharing,
+          style: "destructive",
+          onPress: () => resolve(true),
+        },
+      ],
+      { cancelable: true, onDismiss: () => resolve(false) },
+    );
+  });
+}
 
 type Props = {
   arena: Seat["arena"];
   position?: GridPosition;
   /** Friends whose shared seat is in this arena. */
   friends?: Friend[];
-  /** Called after my seat is shared with friends. */
+  /** Called after my seat is shared with friends, or stops being. */
   onSharedWithFriends?: () => void;
 };
-
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
 export default function ShareMap({
   arena,
@@ -45,28 +132,64 @@ export default function ShareMap({
   const token = useToken();
   const { width } = useWindowDimensions();
   const [placed, setPlaced] = useState<GridPosition | undefined>();
+  // When my seat stops being shared with friends, while it is.
+  const [sharedUntil, setSharedUntil] = useState<Date | null>(null);
   const card = useRef<ComponentRef<typeof View>>(null);
+
+  // Whether my seat is already shared, from an earlier visit.
+  useEffect(() => {
+    if (!token) return setSharedUntil(null);
+    api<MeResponse>("/me", { token })
+      .then(({ seat }) => setSharedUntil(seat && new Date(seat.expiresAt)))
+      .catch(() => {});
+  }, [token]);
+
+  // Back to the plain button when the share runs out.
+  useEffect(() => {
+    if (!sharedUntil) return;
+    const timer = setTimeout(
+      () => setSharedUntil(null),
+      Math.max(0, sharedUntil.getTime() - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [sharedUntil]);
 
   const url =
     placed &&
     locationUrl(arena, formatGridCoordinates(placed.gridX, placed.gridY));
 
+  async function stopSharing() {
+    if (!sharedUntil || !(await askStop(sharedUntil))) return;
+    try {
+      await api("/seat", { method: "DELETE", token });
+      setSharedUntil(null);
+      onSharedWithFriends?.();
+    } catch {
+      Alert.alert(t.couldNotStopSharing, t.checkNetwork);
+    }
+  }
+
   async function shareWithFriends() {
     if (!placed) return;
     if (!token) return router.push("/logg-inn");
+    const hours = await askHours();
+    if (!hours) return;
     try {
       const { expiresAt } = await api<{ expiresAt: string }>("/seat", {
         method: "PUT",
-        body: { arena, gridX: placed.gridX, gridY: placed.gridY },
+        body: {
+          arena,
+          gridX: placed.gridX,
+          gridY: placed.gridY,
+          hours,
+        } satisfies ShareSeatRequest,
         token,
       });
-      Alert.alert(
-        "Delt med vennene dine",
-        `De ser plassen din til ${time(expiresAt)}.`,
-      );
+      setSharedUntil(new Date(expiresAt));
+      Alert.alert(t.sharedWithFriends, t.theySeeYourSeatUntil(time(expiresAt)));
       onSharedWithFriends?.();
     } catch {
-      Alert.alert("Kunne ikke dele", "Sjekk nettet og prøv igjen.");
+      Alert.alert(t.couldNotShare, t.checkNetwork);
     }
   }
 
@@ -92,16 +215,27 @@ export default function ShareMap({
         <View
           style={[styles.actions, { right: width * 0.1, bottom: width * 0.1 }]}
         >
-          <RoundButton
-            icon={friendsIcon}
-            label="Del plassen med venner"
-            onPress={shareWithFriends}
-          />
-          <RoundButton
-            icon={shareIcon}
-            label="Del plassering"
-            onPress={() => shareLocation(url, card)}
-          />
+          {/* They pop up one after the other when the pin is set down, and
+              shrink away when it's picked up again. */}
+          <Animated.View entering={popIn(0)} exiting={popOut}>
+            <RoundButton
+              icon={{
+                ios: "person.2.wave.2.fill",
+                android: "connect_without_contact",
+              }}
+              tint={sharedUntil ? SHARING_COLOR : undefined}
+              label={sharedUntil ? t.stopSharing : t.shareSeatWithFriends}
+              onPress={sharedUntil ? stopSharing : shareWithFriends}
+            />
+          </Animated.View>
+          <Animated.View entering={popIn(1)} exiting={popOut}>
+            <RoundButton
+              icon={{ ios: "square.and.arrow.up", android: "ios_share" }}
+              tint={PIN_COLOR}
+              label={t.shareLocation}
+              onPress={() => shareLocation(url, card)}
+            />
+          </Animated.View>
         </View>
       )}
     </View>

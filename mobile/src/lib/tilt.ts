@@ -33,6 +33,15 @@ function fit(turn: number) {
   return Math.min(ASPECT / (ASPECT * c + s), 1 / (ASPECT * s + c));
 }
 
+/**
+ * The lean alone, for something lying on a floor `height` px tall but drawn
+ * apart from it: roughly the floor's perspective, without its turn.
+ */
+export function floorLean(height: number) {
+  "worklet";
+  return [{ perspective: PERSPECTIVE * height }, { rotateX: `${TILT_DEG}deg` }];
+}
+
 /** The transform that turns and leans a floor `height` px tall. */
 export function floorTransform(height: number, turn: number) {
   "worklet";
@@ -85,8 +94,9 @@ export function toFloor(
   };
 }
 
-// Facing within 60° of north or south turns the map; east and west keep it.
-const SWITCH_COS = 0.5;
+// Facing within 45° of north or south turns the map; anywhere between keeps
+// it as it is, so it only turns when you really face the other way.
+const SWITCH_COS = Math.SQRT1_2;
 const TURN_MS = 700;
 
 /**
@@ -95,6 +105,9 @@ const TURN_MS = 700;
  */
 export function useCompassTurn(): SharedValue<number> {
   const sensor = useAnimatedSensor(SensorType.ROTATION, {
+    // Ten readings a second is plenty to notice a turn, and spares the battery
+    // the screen's 60–120.
+    interval: 100,
     iosReferenceFrame: IOSReferenceFrame.XMagneticNorthZVertical,
   });
   const turn = useSharedValue(0);

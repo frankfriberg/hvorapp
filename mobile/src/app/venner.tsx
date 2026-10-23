@@ -5,32 +5,26 @@ import { Alert, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import Button from "@/components/Button";
 import { api } from "@/lib/api";
 import { useFriends } from "@/lib/friends";
+import { t, time } from "@/lib/i18n";
 import { inviteUrl } from "@/lib/links";
 import { useSession } from "@/lib/session";
-
-const time = (iso: string) =>
-  new Date(iso).toLocaleTimeString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+import { useTheme } from "@/lib/theme";
 
 const seatStatus = (friend: Friend) =>
-  friend.seat
-    ? `Sitter i Salen · deler til ${time(friend.seat.expiresAt)}`
-    : "Deler ikke plassen sin nå";
+  friend.seat ? t.sitsInSalenUntil(time(friend.seat.expiresAt)) : t.notSharing;
 
 export default function FriendsScreen() {
   const router = useRouter();
   const { session, signOut, deleteAccount } = useSession();
   const { friends, refresh } = useFriends();
+  const theme = useTheme();
+  const body = [styles.body, { color: theme.secondaryText }];
 
   if (session.status !== "signed-in") {
     return (
       <View style={styles.screen}>
-        <Text style={styles.body}>
-          Logg inn for å legge til venner og se hvor de sitter.
-        </Text>
-        <Button label="Logg inn" onPress={() => router.push("/logg-inn")} />
+        <Text style={body}>{t.signInForFriends}</Text>
+        <Button label={t.signIn} onPress={() => router.push("/logg-inn")} />
       </View>
     );
   }
@@ -38,62 +32,57 @@ export default function FriendsScreen() {
   const { token, user } = session;
   const call = (path: string, method: "POST" | "DELETE") =>
     api(path, { method, token }).then(refresh, () =>
-      Alert.alert("Noe gikk galt", "Sjekk nettet og prøv igjen."),
+      Alert.alert(t.somethingWentWrong, t.checkNetwork),
     );
 
   const invite = () =>
     Share.share({
-      message: `Bli venn med meg på Hvor, så ser vi hvor hverandre sitter: ${inviteUrl(user.inviteCode)}`,
+      message: t.inviteMessage(inviteUrl(user.inviteCode)),
     });
 
   const confirmUnfriend = (friend: Person) =>
-    Alert.alert(
-      `Fjerne ${friend.name}?`,
-      "Dere slutter å se hverandres plass.",
-      [
-        { text: "Avbryt", style: "cancel" },
-        {
-          text: "Fjern",
-          style: "destructive",
-          onPress: () => call(`/friends/${friend.id}`, "DELETE"),
-        },
-      ],
-    );
+    Alert.alert(t.removeFriend(friend.name), t.removeFriendBody, [
+      { text: t.cancel, style: "cancel" },
+      {
+        text: t.remove,
+        style: "destructive",
+        onPress: () => call(`/friends/${friend.id}`, "DELETE"),
+      },
+    ]);
 
   const confirmDelete = () =>
-    Alert.alert(
-      "Slette kontoen?",
-      "Vennene og plassene du har delt slettes. Dette kan ikke angres.",
-      [
-        { text: "Avbryt", style: "cancel" },
-        {
-          text: "Slett",
-          style: "destructive",
-          onPress: () =>
-            deleteAccount().catch(() =>
-              Alert.alert("Kunne ikke slette", "Prøv igjen om litt."),
-            ),
-        },
-      ],
-    );
+    Alert.alert(t.deleteAccountTitle, t.deleteAccountBody, [
+      { text: t.cancel, style: "cancel" },
+      {
+        text: t.delete,
+        style: "destructive",
+        onPress: () =>
+          deleteAccount().catch(() =>
+            Alert.alert(t.couldNotDelete, t.tryAgainLater),
+          ),
+      },
+    ]);
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
-      <Button label="Inviter en venn" onPress={invite} />
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={styles.screen}
+    >
+      <Button label={t.inviteFriend} onPress={invite} />
 
       {friends && friends.incoming.length > 0 && (
-        <Section title="Vil bli venn med deg">
+        <Section title={t.wantsToBeFriends}>
           {friends.incoming.map((person) => (
             <Row key={person.id} name={person.name}>
               <Button
                 size="small"
-                label="Godta"
+                label={t.accept}
                 onPress={() => call(`/friends/requests/${person.id}`, "POST")}
               />
               <Button
                 size="small"
                 variant="secondary"
-                label="Avslå"
+                label={t.decline}
                 onPress={() => call(`/friends/requests/${person.id}`, "DELETE")}
               />
             </Row>
@@ -101,18 +90,18 @@ export default function FriendsScreen() {
         </Section>
       )}
 
-      <Section title="Venner">
+      <Section title={t.friends}>
         {friends?.friends.length === 0 && (
-          <Text style={styles.body}>
-            Ingen venner ennå. Send invitasjonslenken din til noen.
-          </Text>
+          <View style={[styles.row, { borderBottomColor: theme.separator }]}>
+            <Text style={body}>{t.noFriendsYet}</Text>
+          </View>
         )}
         {friends?.friends.map((friend) => (
           <Row key={friend.id} name={friend.name} detail={seatStatus(friend)}>
             <Button
               size="small"
               variant="secondary"
-              label="Fjern"
+              label={t.remove}
               onPress={() => confirmUnfriend(friend)}
             />
           </Row>
@@ -120,13 +109,13 @@ export default function FriendsScreen() {
       </Section>
 
       {friends && friends.outgoing.length > 0 && (
-        <Section title="Venter på svar">
+        <Section title={t.awaitingReply}>
           {friends.outgoing.map((person) => (
             <Row key={person.id} name={person.name}>
               <Button
                 size="small"
                 variant="secondary"
-                label="Trekk tilbake"
+                label={t.withdraw}
                 onPress={() => call(`/friends/requests/${person.id}`, "DELETE")}
               />
             </Row>
@@ -134,19 +123,32 @@ export default function FriendsScreen() {
         </Section>
       )}
 
-      <Section title={`Logget inn som ${user.name}`}>
-        <Button variant="secondary" label="Logg ut" onPress={signOut} />
-        <Button variant="danger" label="Slett konto" onPress={confirmDelete} />
-      </Section>
+      <View style={styles.account}>
+        <Text style={[styles.sectionTitle, { color: theme.tertiaryText }]}>
+          {t.signedInAs(user.name)}
+        </Text>
+        <Button variant="secondary" label={t.signOut} onPress={signOut} />
+        <Button
+          variant="danger"
+          label={t.deleteAccount}
+          onPress={confirmDelete}
+        />
+      </View>
     </ScrollView>
   );
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
+  const theme = useTheme();
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
+      <Text style={[styles.sectionTitle, { color: theme.tertiaryText }]}>
+        {title}
+      </Text>
+      {/* An inset grouped list: rows on a rounded card, hairlines between. */}
+      <View style={[styles.card, { backgroundColor: theme.card }]}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -160,11 +162,16 @@ function Row({
   detail?: string;
   children?: ReactNode;
 }) {
+  const theme = useTheme();
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, { borderBottomColor: theme.separator }]}>
       <View style={styles.rowText}>
-        <Text style={styles.name}>{name}</Text>
-        {detail && <Text style={styles.detail}>{detail}</Text>}
+        <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
+        {detail && (
+          <Text style={[styles.detail, { color: theme.tertiaryText }]}>
+            {detail}
+          </Text>
+        )}
       </View>
       {children && <View style={styles.rowActions}>{children}</View>}
     </View>
@@ -172,18 +179,30 @@ function Row({
 }
 
 const styles = StyleSheet.create({
-  screen: { padding: 24, gap: 28 },
-  body: { fontSize: 16, color: "#52525b" },
-  section: { gap: 12 },
+  screen: { padding: 16, gap: 28 },
+  body: { fontSize: 17 },
+  section: { gap: 6 },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#71717a",
     textTransform: "uppercase",
+    marginHorizontal: 16,
   },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
+  card: {
+    borderRadius: 26,
+    overflow: "hidden",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 52,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   rowText: { flex: 1, gap: 2 },
-  name: { fontSize: 17, fontWeight: "600" },
-  detail: { fontSize: 14, color: "#71717a" },
+  name: { fontSize: 17 },
+  detail: { fontSize: 15 },
   rowActions: { flexDirection: "row", gap: 8 },
+  account: { gap: 10 },
 });

@@ -1,18 +1,13 @@
 import {
-  ARENA_COLORS,
-  ARENA_COLUMN_TOP_COLOR,
   ARENA_OUTLINE_WIDTH,
-  ARENA_ROW_SIDE_COLOR,
-  ARENA_STAGE_SIDE_COLOR,
-  ARENA_TIER_SIDE_COLOR,
   type Arena,
-  type ArenaColors,
   type ArenaSegment,
   pathSegments,
 } from "@shared/arena";
 import { memo, useMemo } from "react";
 import { type StyleProp, View, type ViewStyle } from "react-native";
 import Svg, { G, Path } from "react-native-svg";
+import { useTheme } from "@/lib/theme";
 
 // How tall rows stand, in arena units: about 2 points on a phone.
 const ROW_HEIGHT = 10;
@@ -81,7 +76,6 @@ function tierFaces(arena: Arena, raised: "south" | "north") {
 
 type Props = {
   arena: Arena;
-  colors?: ArenaColors;
   style?: StyleProp<ViewStyle>;
   /**
    * Gives rows height and stands markers up as columns, seen from the bottom
@@ -93,12 +87,9 @@ type Props = {
 
 // Memoised: the map sits under the pin and must not redraw its ~1000 paths on
 // every drag frame.
-export default memo(function ArenaMap({
-  arena,
-  colors = ARENA_COLORS,
-  style,
-  raised,
-}: Props) {
+export default memo(function ArenaMap({ arena, style, raised }: Props) {
+  // Light or dark with the phone.
+  const colors = useTheme().arena;
   // Room around the map for the rows' sides and the columns at its edges,
   // the SVG grown by as much as it's moved out so the map stays put.
   const margin = raised ? COLUMN_HEIGHT : 0;
@@ -138,7 +129,7 @@ export default memo(function ArenaMap({
           // viewer and drawn under the row itself.
           <G
             transform={`translate(0 ${raised === "south" ? ROW_HEIGHT : -ROW_HEIGHT})`}
-            fill={ARENA_ROW_SIDE_COLOR}
+            fill={colors.rowSide}
           >
             {arena.shapes.map(({ kind, d }, i) =>
               kind === "row" ? (
@@ -157,7 +148,7 @@ export default memo(function ArenaMap({
           // Under the rows and the tiers' edges, so a face only shows between
           // an edge and the rows on the tier above it.
           // The short edges' faces over the long ones'.
-          <G fill={ARENA_TIER_SIDE_COLOR}>
+          <G fill={colors.tierSide}>
             <Path d={tiers.long} />
             <Path d={tiers.short} />
           </G>
@@ -187,7 +178,7 @@ export default memo(function ArenaMap({
           ),
         )}
         {blocks.map(({ d, height }, i) => (
-          // A block raised like a column, its top the floor's white with the
+          // A block raised like a column, its top the stage's colour with the
           // outline drawn round it.
           // biome-ignore lint/suspicious/noArrayIndexKey: shapes are static and never reorder.
           <G key={i}>
@@ -198,7 +189,7 @@ export default memo(function ArenaMap({
               <Path
                 key={step}
                 d={d}
-                fill={ARENA_STAGE_SIDE_COLOR}
+                fill={colors.stageSide}
                 // The base outlined too, for the foot of the side.
                 stroke={step === 0 ? colors.outline : undefined}
                 strokeWidth={ARENA_OUTLINE_WIDTH}
@@ -207,7 +198,7 @@ export default memo(function ArenaMap({
             ))}
             <Path
               d={d}
-              fill="#fff"
+              fill={colors.stageTop}
               stroke={colors.outline}
               strokeWidth={ARENA_OUTLINE_WIDTH}
               strokeLinecap="round"
@@ -235,7 +226,7 @@ export default memo(function ArenaMap({
                 ))}
                 <Path
                   d={d}
-                  fill={ARENA_COLUMN_TOP_COLOR}
+                  fill={colors.columnTop}
                   transform={`translate(0 ${away * COLUMN_HEIGHT})`}
                 />
               </G>

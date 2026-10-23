@@ -3,6 +3,7 @@ import type { GridPosition } from "@shared/grid";
 import type { ComponentRef, Ref } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SHARE_BANNER } from "@/lib/banner";
+import { LightTheme } from "@/lib/theme";
 import ArenaMap from "./ArenaMap";
 import Pin from "./Pin";
 
@@ -21,30 +22,33 @@ type Props = {
  * Rendered off-screen and captured, never shown in the app.
  */
 export default function ShareCard({ position, ref }: Props) {
+  // Light whatever the phone's set to: everyone sees the same image.
   return (
-    <View ref={ref} collapsable={false} style={styles.card}>
-      <View style={styles.map}>
-        <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
-        <Pin
-          percentageX={position.percentageX}
-          percentageY={position.percentageY}
-          // On screen the pin is sized off a window ~1.25× the map's width.
-          viewportWidth={(CARD_WIDTH - CARD_PADDING * 2) * 1.25}
-        />
-      </View>
-      <View
-        style={[styles.banner, { backgroundColor: SHARE_BANNER.background }]}
-      >
-        <Text style={[styles.headline, { color: SHARE_BANNER.foreground }]}>
-          {SHARE_BANNER.headline}
-        </Text>
-        {SHARE_BANNER.body && (
-          <Text style={[styles.body, { color: SHARE_BANNER.foreground }]}>
-            {SHARE_BANNER.body}
+    <LightTheme>
+      <View ref={ref} collapsable={false} style={styles.card}>
+        <View style={styles.map}>
+          <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
+          <Pin
+            percentageX={position.percentageX}
+            percentageY={position.percentageY}
+            // On screen the pin is sized off a window ~1.25× the map's width.
+            viewportWidth={(CARD_WIDTH - CARD_PADDING * 2) * 1.25}
+          />
+        </View>
+        <View
+          style={[styles.banner, { backgroundColor: SHARE_BANNER.background }]}
+        >
+          <Text style={[styles.headline, { color: SHARE_BANNER.foreground }]}>
+            {SHARE_BANNER.headline}
           </Text>
-        )}
+          {SHARE_BANNER.body && (
+            <Text style={[styles.body, { color: SHARE_BANNER.foreground }]}>
+              {SHARE_BANNER.body}
+            </Text>
+          )}
+        </View>
       </View>
-    </View>
+    </LightTheme>
   );
 }
 

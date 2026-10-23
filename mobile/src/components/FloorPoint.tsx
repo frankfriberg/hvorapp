@@ -14,9 +14,9 @@ export const FloorContext = createContext<{
 } | null>(null);
 
 type Props = {
-  /** The point on the floor, as map percentages. */
-  percentageX: number;
-  percentageY: number;
+  /** The point on the floor, as map percentages; shared values to animate it. */
+  percentageX: number | SharedValue<number>;
+  percentageY: number | SharedValue<number>;
   /** Drawn upright with its origin on the point: a pin at 0%, 0%. */
   children: ReactNode;
 };
@@ -30,7 +30,11 @@ export default function FloorPoint({
   const floor = useContext(FloorContext);
   const style = useAnimatedStyle(() => {
     if (!floor) return {};
-    const at = toScreen(floor.turn.value, percentageX, percentageY);
+    const at = toScreen(
+      floor.turn.value,
+      typeof percentageX === "number" ? percentageX : percentageX.value,
+      typeof percentageY === "number" ? percentageY : percentageY.value,
+    );
     return {
       transform: [
         { translateX: (at.percentageX / 100) * floor.width },

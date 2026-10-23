@@ -1,5 +1,6 @@
 import salen from "@shared/arenas/salen";
-import { type GridPosition, snapToGrid } from "@shared/grid";
+import { type GridPosition, percentageToGrid } from "@shared/grid";
+import * as Haptics from "expo-haptics";
 import { type ComponentRef, type ReactNode, useRef, useState } from "react";
 import {
   type GestureResponderEvent,
@@ -7,7 +8,14 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import Animated, {
+  runOnJS,
+  useAnimatedReaction,
+  useAnimatedStyle,
+  useFrameCallback,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import { floorTransform, toFloor, useCompassTurn } from "@/lib/tilt";
 import ArenaMap from "./ArenaMap";
 import FloorPoint, { FloorContext } from "./FloorPoint";
@@ -16,6 +24,24 @@ import Pin from "./Pin";
 // Vertical lift (px) applied to the placed marker so the user's fingertip
 // doesn't cover it while dragging. Same as the web's touchMap.
 const MARKER_LIFT_PX = 60;
+
+// The pin swings like a weighted toy pulled by its tip: its head trails the
+// way it's dragged, sideways as a lean and along the hall as a tip towards or
+// away from you, and springs back upright past centre when the finger stops.
+// TARGET is how far it leans per px/s, STIFFNESS and DAMPING the spring
+// (≈1.5 Hz, about three visible swings).
+const SWING_TARGET = 0.0007;
+const SWING_MAX = 0.6;
+// Tipping along the hall is foreshortened by the floor's lean, so it needs more.
+const PITCH_TARGET = 0.0012;
+const PITCH_MAX = 0.8;
+const SWING_STIFFNESS = 90;
+const SWING_DAMPING = 4.5;
+// How long the swing keeps simulating after release, in ms.
+const SWING_SETTLE_MS = 3000;
+// How long the pin takes to glide to where the finger is, in ms: a touch away
+// from it slides it over rather than making it jump.
+const GLIDE_MS = 120;
 
 type Props = {
   position?: GridPosition;
@@ -33,7 +59,62 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
   const origin = useRef({ x: 0, y: 0 });
   const viewRef = useRef<ComponentRef<typeof View>>(null);
 
+  const finger = useSharedValue({ x: 0, y: 0 });
+  const angle = useSharedValue(0);
+  const pitch = useSharedValue(0);
+  const spin = useSharedValue({ angle: 0, pitch: 0 });
+  const last = useSharedValue({ x: 0, y: 0, vx: 0, vy: 0 });
+  const swing = useFrameCallback(({ timeSincePreviousFrame }) => {
+    const dt = Math.min((timeSincePreviousFrame ?? 16) / 1000, 0.05);
+    if (dt <= 0) return;
+    // Smoothed so a jittery finger doesn't shake the pin.
+    const { x, y } = finger.value;
+    const vx = last.value.vx * 0.75 + ((x - last.value.x) / dt) * 0.25;
+    const vy = last.value.vy * 0.75 + ((y - last.value.y) / dt) * 0.25;
+    last.value = { x, y, vx, vy };
+    const clamp = (value: number, max: number) =>
+      Math.max(-max, Math.min(max, value));
+    const step = (target: number, at: number, speed: number) =>
+      speed + (SWING_STIFFNESS * (target - at) - SWING_DAMPING * speed) * dt;
+    // Dragged right, the head leans left; dragged up the screen, away from
+    // you, it tips towards you.
+    const angleSpin = step(
+      clamp(-vx * SWING_TARGET, SWING_MAX),
+      angle.value,
+      spin.value.angle,
+    );
+    const pitchSpin = step(
+      clamp(vy * PITCH_TARGET, PITCH_MAX),
+      pitch.value,
+      spin.value.pitch,
+    );
+    spin.value = { angle: angleSpin, pitch: pitchSpin };
+    angle.value += angleSpin * dt;
+    pitch.value += pitchSpin * dt;
+  }, false);
+  const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const pinX = useSharedValue(position?.percentageX ?? 0);
+  const pinY = useSharedValue(position?.percentageY ?? 0);
+  function moveTo(next: GridPosition) {
+    // The first time it appears it's already there.
+    const glide = current ? { duration: GLIDE_MS } : { duration: 0 };
+    pinX.value = withTiming(next.percentageX, glide);
+    pinY.value = withTiming(next.percentageY, glide);
+    setCurrent(next);
+  }
+
   const turn = useCompassTurn();
+  // The rows show their side towards you: the map's bottom facing south, its
+  // top once turned to face north. Flipped halfway through the turn, when the
+  // sides are edge-on.
+  const [facingNorth, setFacingNorth] = useState(false);
+  useAnimatedReaction(
+    () => turn.value > 90,
+    (north, before) => {
+      if (north !== before) runOnJS(setFacingNorth)(north);
+    },
+  );
   const floorStyle = useAnimatedStyle(() => ({
     transform: floorTransform(size.height || 1, turn.value),
   }));
@@ -46,38 +127,50 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
       ((pageX - origin.current.x) / width) * 100,
       ((pageY - origin.current.y - MARKER_LIFT_PX) / height) * 100,
     );
-    const x = Math.min(Math.max((floor.percentageX / 100) * width, 0), width);
-    const y = Math.min(Math.max((floor.percentageY / 100) * height, 0), height);
-    const snapped = snapToGrid(x, y, width, height);
-
+    const clamp = (value: number) => Math.min(Math.max(value, 0), 100);
+    const percentageX = clamp(floor.percentageX);
+    const percentageY = clamp(floor.percentageY);
+    // Not snapped: the link and friends get the pin where it stands.
     return {
-      percentageX: (x / width) * 100,
-      percentageY: (y / height) * 100,
-      gridX: snapped.x,
-      gridY: snapped.y,
+      percentageX,
+      percentageY,
+      ...percentageToGrid(percentageX, percentageY),
     };
   }
 
   function onGrant(e: GestureResponderEvent) {
     const { pageX, pageY } = e.nativeEvent;
+    clearTimeout(settle.current);
+    finger.value = { x: pageX, y: pageY };
+    last.value = { x: pageX, y: pageY, vx: 0, vy: 0 };
+    swing.setActive(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Re-measure on every touch: the map can move with layout changes.
     viewRef.current?.measureInWindow((x, y) => {
       origin.current = { x, y };
       setIsMoving(true);
-      setCurrent(positionAt(pageX, pageY));
+      moveTo(positionAt(pageX, pageY));
       onPlace?.(undefined);
     });
   }
 
   function onMove(e: GestureResponderEvent) {
-    setCurrent(positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY));
+    finger.value = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+    moveTo(positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY));
   }
 
   function onRelease(e: GestureResponderEvent) {
     const placed = positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY);
-    setCurrent(placed);
+    moveTo(placed);
     setIsMoving(false);
     onPlace?.(placed);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    settle.current = setTimeout(() => {
+      swing.setActive(false);
+      angle.value = 0;
+      pitch.value = 0;
+      spin.value = { angle: 0, pitch: 0 };
+    }, SWING_SETTLE_MS);
   }
 
   return (
@@ -98,21 +191,24 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
           would draw it over the pins; a flat wrapper flattens it behind them. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Animated.View style={[StyleSheet.absoluteFill, floorStyle]}>
-          <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
+          <ArenaMap
+            arena={salen}
+            style={StyleSheet.absoluteFill}
+            raised={facingNorth ? "north" : "south"}
+          />
         </Animated.View>
       </View>
       <FloorContext.Provider value={{ ...size, turn }}>
         {overlay}
         {current && (
-          <FloorPoint
-            percentageX={current.percentageX}
-            percentageY={current.percentageY}
-          >
+          <FloorPoint percentageX={pinX} percentageY={pinY}>
             <Pin
               percentageX={0}
               percentageY={0}
               viewportWidth={windowWidth}
               lifted={isMoving}
+              angle={angle}
+              pitch={pitch}
             />
           </FloorPoint>
         )}

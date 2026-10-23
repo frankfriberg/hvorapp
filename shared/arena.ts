@@ -37,17 +37,42 @@ export const ARENA_COLORS: ArenaColors = {
   outline: "#9e9e9e",
 };
 
-/** The side of a row, where a map in perspective gives rows some height. */
-export const ARENA_ROW_SIDE_COLOR = "#c5cdd9";
+/**
+ * Every colour a map in perspective needs: the shapes', the floor under them,
+ * the top of the stage and its steps, and the sides it gives rows, columns
+ * (lit top), the stage and the tiers.
+ */
+export type ArenaPalette = ArenaColors & {
+  floor: string;
+  stageTop: string;
+  rowSide: string;
+  columnTop: string;
+  stageSide: string;
+  tierSide: string;
+};
 
-/** The lit top of a column, where a map in perspective stands markers up. */
-export const ARENA_COLUMN_TOP_COLOR = "#cfcfcf";
+export const ARENA_PALETTE: ArenaPalette = {
+  ...ARENA_COLORS,
+  floor: "#ffffff",
+  stageTop: "#ffffff",
+  rowSide: "#c5cdd9",
+  columnTop: "#cfcfcf",
+  stageSide: "#e2e2e2",
+  tierSide: "#d2d2d2",
+};
 
-/** The stage's side, where a map in perspective raises it. */
-export const ARENA_STAGE_SIDE_COLOR = "#e2e2e2";
-
-/** A tier's side, where a map in perspective raises the tiers. */
-export const ARENA_TIER_SIDE_COLOR = "#d2d2d2";
+/** The same in dark mode: a dark grey floor, dimmer rows, sides lighter than it. */
+export const ARENA_DARK_PALETTE: ArenaPalette = {
+  row: "#5b7fc0",
+  marker: "#5c5c62",
+  outline: "#5c5c62",
+  floor: "#1c1c1e",
+  stageTop: "#2c2c2f",
+  rowSide: "#2f3f5c",
+  columnTop: "#7a7a80",
+  stageSide: "#3a3a3f",
+  tierSide: "#2c2c30",
+};
 
 /** Stroke width of `outline` shapes, in arena units. */
 export const ARENA_OUTLINE_WIDTH = 2;

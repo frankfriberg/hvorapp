@@ -1,8 +1,9 @@
 import type { ComponentRef, RefObject } from "react";
 import { Platform, Share, type View } from "react-native";
 import { captureRef } from "react-native-view-shot";
+import { t } from "./i18n";
 
-const TITLE = "Her sitter jeg!";
+const TITLE = t.shareTitle;
 
 // Wide enough to read the rows in a chat, small enough to send quickly.
 const IMAGE_WIDTH_PX = 1080;
