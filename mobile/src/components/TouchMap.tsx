@@ -7,7 +7,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import Animated, { useAnimatedStyle } from "react-native-reanimated";
+import { floorTransform, toFloor, useCompassTurn } from "@/lib/tilt";
 import ArenaMap from "./ArenaMap";
+import FloorPoint, { FloorContext } from "./FloorPoint";
 import Pin from "./Pin";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
@@ -18,7 +21,7 @@ type Props = {
   position?: GridPosition;
   /** The placed position on release; `undefined` while the pin is dragged. */
   onPlace?: (position: GridPosition | undefined) => void;
-  /** Drawn on the map under my pin: friends' seats. */
+  /** Drawn over the floor under my pin: friends' seats, as `FloorPoint`s. */
   overlay?: ReactNode;
 };
 
@@ -30,13 +33,21 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
   const origin = useRef({ x: 0, y: 0 });
   const viewRef = useRef<ComponentRef<typeof View>>(null);
 
+  const turn = useCompassTurn();
+  const floorStyle = useAnimatedStyle(() => ({
+    transform: floorTransform(size.height || 1, turn.value),
+  }));
+
   function positionAt(pageX: number, pageY: number): GridPosition {
     const { width, height } = size;
-    const x = Math.min(Math.max(pageX - origin.current.x, 0), width);
-    const y = Math.min(
-      Math.max(pageY - origin.current.y - MARKER_LIFT_PX, 0),
-      height,
+    // The finger is on the turned, leaning floor; find the point under it.
+    const floor = toFloor(
+      turn.value,
+      ((pageX - origin.current.x) / width) * 100,
+      ((pageY - origin.current.y - MARKER_LIFT_PX) / height) * 100,
     );
+    const x = Math.min(Math.max((floor.percentageX / 100) * width, 0), width);
+    const y = Math.min(Math.max((floor.percentageY / 100) * height, 0), height);
     const snapped = snapToGrid(x, y, width, height);
 
     return {
@@ -83,16 +94,29 @@ export default function TouchMap({ position, onPlace, overlay }: Props) {
       // A drag cut short by the system (a call, a gesture) still places the pin.
       onResponderTerminate={onRelease}
     >
-      <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
-      {overlay}
-      {current && (
-        <Pin
-          percentageX={current.percentageX}
-          percentageY={current.percentageY}
-          viewportWidth={windowWidth}
-          lifted={isMoving}
-        />
-      )}
+      {/* The leaning floor's near half stands in front of the screen, and iOS
+          would draw it over the pins; a flat wrapper flattens it behind them. */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Animated.View style={[StyleSheet.absoluteFill, floorStyle]}>
+          <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+      </View>
+      <FloorContext.Provider value={{ ...size, turn }}>
+        {overlay}
+        {current && (
+          <FloorPoint
+            percentageX={current.percentageX}
+            percentageY={current.percentageY}
+          >
+            <Pin
+              percentageX={0}
+              percentageY={0}
+              viewportWidth={windowWidth}
+              lifted={isMoving}
+            />
+          </FloorPoint>
+        )}
+      </FloorContext.Provider>
     </View>
   );
 }

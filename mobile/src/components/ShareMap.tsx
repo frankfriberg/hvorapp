@@ -11,6 +11,7 @@ import { api } from "@/lib/api";
 import { locationUrl } from "@/lib/links";
 import { useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
+import FloorPoint from "./FloorPoint";
 import FriendPin from "./FriendPin";
 import RoundButton from "./RoundButton";
 import ShareCard from "./ShareCard";
@@ -71,17 +72,10 @@ export default function ShareMap({
 
   const overlay = friends.map(({ id, name, seat }) => {
     if (!seat || seat.arena !== arena) return null;
-    const { percentageX, percentageY } = gridToPercentage(
-      seat.gridX,
-      seat.gridY,
-    );
     return (
-      <FriendPin
-        key={id}
-        name={name}
-        percentageX={percentageX}
-        percentageY={percentageY}
-      />
+      <FloorPoint key={id} {...gridToPercentage(seat.gridX, seat.gridY)}>
+        <FriendPin name={name} percentageX={0} percentageY={0} />
+      </FloorPoint>
     );
   });
 
