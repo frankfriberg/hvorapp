@@ -49,3 +49,6 @@ next-env.d.ts
 
 # local development database (PGlite)
 /.pglite
+
+# scripts/remote-dev.sh
+/.remote-dev/
