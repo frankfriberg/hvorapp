@@ -12,6 +12,14 @@ export type Seat = {
   gridY: number;
 };
 
+/** How long a seat can be shared with friends, in hours; the first is the default. */
+export const SEAT_SHARE_HOURS = [1, 2, 4] as const;
+
+export type SeatShareHours = (typeof SEAT_SHARE_HOURS)[number];
+
+/** PUT /api/seat */
+export type ShareSeatRequest = Seat & { hours?: SeatShareHours };
+
 export type User = { id: string; name: string; inviteCode: string };
 
 export type Person = { id: string; name: string };

@@ -17,7 +17,13 @@ import {
 } from "./friends";
 import { migrate } from "./migrate";
 import { pglite } from "./pglite";
-import { mySeat, parseSeat, shareSeat, stopSharingSeat } from "./shares";
+import {
+  mySeat,
+  parseSeat,
+  parseShareHours,
+  shareSeat,
+  stopSharingSeat,
+} from "./shares";
 
 let db: Db;
 let ada: User;
@@ -121,9 +127,9 @@ describe("shared seats", () => {
   const seat = { arena: "salen", gridX: 10, gridY: 20 } as const;
   const noon = new Date("2026-10-17T12:00:00Z");
 
-  it("are visible to friends for four hours", async () => {
+  it("are visible to friends for as long as they're shared", async () => {
     await makeFriends();
-    await shareSeat(db, ada.id, seat, noon);
+    await shareSeat(db, ada.id, seat, 4, noon);
 
     const at = (iso: string) => listFriends(db, bo.id, new Date(iso));
     expect((await at("2026-10-17T15:59:00Z")).friends[0].seat).toMatchObject(
@@ -134,13 +140,13 @@ describe("shared seats", () => {
 
   it("are not visible to people who aren't friends", async () => {
     await requestFriend(db, bo.id, ada.inviteCode);
-    await shareSeat(db, ada.id, seat, noon);
+    await shareSeat(db, ada.id, seat, 1, noon);
     expect((await listFriends(db, bo.id, noon)).friends).toEqual([]);
   });
 
   it("can be replaced and stopped", async () => {
-    await shareSeat(db, ada.id, seat, noon);
-    await shareSeat(db, ada.id, { ...seat, gridX: 11 }, noon);
+    await shareSeat(db, ada.id, seat, 1, noon);
+    await shareSeat(db, ada.id, { ...seat, gridX: 11 }, 1, noon);
     expect(await mySeat(db, ada.id, noon)).toMatchObject({ gridX: 11 });
     await stopSharingSeat(db, ada.id);
     expect(await mySeat(db, ada.id, noon)).toBeNull();
@@ -150,8 +156,18 @@ describe("shared seats", () => {
     expect(parseSeat(seat)).toEqual(seat);
     expect(parseSeat({ ...seat, arena: "elsewhere" })).toBeNull();
     expect(parseSeat({ ...seat, gridX: -1 })).toBeNull();
-    expect(parseSeat({ ...seat, gridY: 1.5 })).toBeNull();
+    expect(parseSeat({ ...seat, gridY: 1.5 })).toEqual({ ...seat, gridY: 1.5 });
+    expect(parseSeat({ ...seat, gridY: "1" })).toBeNull();
+    expect(parseSeat({ ...seat, gridY: Number.NaN })).toBeNull();
     expect(parseSeat({ ...seat, gridY: 1000 })).toBeNull();
     expect(parseSeat("salen")).toBeNull();
+  });
+
+  it("are shared for an hour unless asked for one of the other lengths", () => {
+    expect(parseShareHours({ ...seat })).toBe(1);
+    expect(parseShareHours({ ...seat, hours: 2 })).toBe(2);
+    expect(parseShareHours({ ...seat, hours: 4 })).toBe(4);
+    expect(parseShareHours({ ...seat, hours: 3 })).toBeNull();
+    expect(parseShareHours({ ...seat, hours: "1" })).toBeNull();
   });
 });

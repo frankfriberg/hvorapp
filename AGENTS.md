@@ -132,7 +132,9 @@ run it on an in-memory PGlite (`src/server/friends.test.ts`).
   Opening it sends its owner a request to accept; if they had already asked
   you, it makes you friends. `/venn/[code]` is the page a browser lands on.
 - **Shares:** one row per person and kind in `shares`; a seat is visible to
-  friends for `SEAT_SHARE_HOURS` (4). Hotel rooms are meant to be the next kind.
+  friends for as long as its sharer picks from `SEAT_SHARE_HOURS` in
+  `shared/api.ts` (1, 2 or 4 hours; 1 by default). Hotel rooms are meant to
+  be the next kind.
 - **Wire types** live in `shared/api.ts`, imported by the server and the app.
 - **Schema:** `db/migrations/*.sql`, applied in order by `npm run db:migrate`
   (production) or automatically on start (local PGlite). Add a new file;
