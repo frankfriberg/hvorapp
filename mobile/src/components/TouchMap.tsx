@@ -40,12 +40,18 @@ const SWING_STIFFNESS = 90;
 const SWING_DAMPING = 4.5;
 // How long the swing keeps simulating after release, in ms.
 const SWING_SETTLE_MS = 3000;
+// How much of the swing a glide to where the finger was held gets: it moves
+// far faster than a drag, and in full it would swing wildly.
+const GLIDE_SWING = 0.5;
 // How long the pin takes to glide to where the finger is, in ms: a touch away
 // from it slides it over rather than making it jump.
 const GLIDE_MS = 120;
+// Picked up away from where it stands, it glides over for about half a swing,
+// so its head trails on the way and overshoots as it stops.
+const PICK_UP_GLIDE_MS = 350;
 // Only a finger held still this long (ms) picks the pin up; a quicker touch
 // is a tap, and one that slides off first does nothing.
-const HOLD_MS = 250;
+const HOLD_MS = 150;
 const HOLD_SLOP_PX = 10;
 // Room around a friend pin that still counts as tapping it, in px.
 const TAP_SLOP_PX = 8;
@@ -76,16 +82,31 @@ export default function TouchMap({
   const origin = useRef({ x: 0, y: 0 });
   const viewRef = useRef<ComponentRef<typeof View>>(null);
 
-  const finger = useSharedValue({ x: 0, y: 0 });
+  const pinX = useSharedValue(position?.percentageX ?? 0);
+  const pinY = useSharedValue(position?.percentageY ?? 0);
+  const turn = useCompassTurn();
+  const layout = useSharedValue({ width: 0, height: 0 });
+  /** Where the pin stands on screen, in px from the map's corner. */
+  function pinOnScreen(percentageX: number, percentageY: number) {
+    "worklet";
+    const at = toScreen(turn.value, percentageX, percentageY);
+    return {
+      x: (at.percentageX / 100) * layout.value.width,
+      y: (at.percentageY / 100) * layout.value.height,
+    };
+  }
   const angle = useSharedValue(0);
   const pitch = useSharedValue(0);
   const spin = useSharedValue({ angle: 0, pitch: 0 });
   const last = useSharedValue({ x: 0, y: 0, vx: 0, vy: 0 });
+  // How much of the swing the pin's motion gets; less while it glides over.
+  const reach = useSharedValue(1);
   const swing = useFrameCallback(({ timeSincePreviousFrame }) => {
     const dt = Math.min((timeSincePreviousFrame ?? 16) / 1000, 0.05);
     if (dt <= 0) return;
-    // Smoothed so a jittery finger doesn't shake the pin.
-    const { x, y } = finger.value;
+    // The pin's own motion, so a glide across the map swings it as a drag
+    // does. Smoothed so a jittery finger doesn't shake the pin.
+    const { x, y } = pinOnScreen(pinX.value, pinY.value);
     const vx = last.value.vx * 0.75 + ((x - last.value.x) / dt) * 0.25;
     const vy = last.value.vy * 0.75 + ((y - last.value.y) / dt) * 0.25;
     last.value = { x, y, vx, vy };
@@ -96,12 +117,12 @@ export default function TouchMap({
     // Dragged right, the head leans left; dragged up the screen, away from
     // you, it tips towards you.
     const angleSpin = step(
-      clamp(-vx * SWING_TARGET, SWING_MAX),
+      clamp(-vx * SWING_TARGET, SWING_MAX) * reach.value,
       angle.value,
       spin.value.angle,
     );
     const pitchSpin = step(
-      clamp(vy * PITCH_TARGET, PITCH_MAX),
+      clamp(vy * PITCH_TARGET, PITCH_MAX) * reach.value,
       pitch.value,
       spin.value.pitch,
     );
@@ -119,17 +140,20 @@ export default function TouchMap({
   } | null>(null);
   const holding = useRef(false);
 
-  const pinX = useSharedValue(position?.percentageX ?? 0);
-  const pinY = useSharedValue(position?.percentageY ?? 0);
-  function moveTo(next: GridPosition) {
+  // When the glide under way ends, so a drag doesn't cut it short.
+  const glideEnd = useRef(0);
+  function moveTo(next: GridPosition, duration = GLIDE_MS) {
+    const now = Date.now();
     // The first time it appears it's already there.
-    const glide = current ? { duration: GLIDE_MS } : { duration: 0 };
+    const glide = {
+      duration: current ? Math.max(duration, glideEnd.current - now) : 0,
+    };
+    glideEnd.current = now + glide.duration;
     pinX.value = withTiming(next.percentageX, glide);
     pinY.value = withTiming(next.percentageY, glide);
     setCurrent(next);
   }
 
-  const turn = useCompassTurn();
   // The rows show their side towards you: the map's bottom facing south, its
   // top once turned to face north. Flipped halfway through the turn, when the
   // sides are edge-on.
@@ -205,12 +229,20 @@ export default function TouchMap({
     press.current = null;
     holding.current = true;
     clearTimeout(settle.current);
-    finger.value = { x: pageX, y: pageY };
-    last.value = { x: pageX, y: pageY, vx: 0, vy: 0 };
+    const next = positionAt(pageX, pageY);
+    // From where it stands now; the first time, from where it appears.
+    const from = current
+      ? pinOnScreen(pinX.value, pinY.value)
+      : pinOnScreen(next.percentageX, next.percentageY);
+    last.value = { ...from, vx: 0, vy: 0 };
+    reach.value = GLIDE_SWING;
+    setTimeout(() => {
+      reach.value = 1;
+    }, PICK_UP_GLIDE_MS);
     swing.setActive(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsMoving(true);
-    moveTo(positionAt(pageX, pageY));
+    moveTo(next, PICK_UP_GLIDE_MS);
     onPlace?.(undefined);
   }
 
@@ -229,7 +261,6 @@ export default function TouchMap({
       }
       return;
     }
-    finger.value = { x: pageX, y: pageY };
     moveTo(positionAt(pageX, pageY));
   }
 
@@ -261,7 +292,10 @@ export default function TouchMap({
     <View
       ref={viewRef}
       style={styles.map}
-      onLayout={(e) => setSize(e.nativeEvent.layout)}
+      onLayout={(e) => {
+        setSize(e.nativeEvent.layout);
+        layout.value = e.nativeEvent.layout;
+      }}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderTerminationRequest={() => false}

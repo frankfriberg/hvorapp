@@ -36,8 +36,8 @@ const PIN_LIFT_MOVING = 1.5;
 
 // The pin as a solid: a ball of radius HEAD_R and a small ball of radius
 // TIP_R, joined by the cone touching both, AXIS apart. Upright it is the
-// friend pin's teardrop. It pivots about the small ball's centre, which is
-// TIP_R above the drawing's lowest point.
+// friend pin's teardrop. It pivots about the point it stands over, the dot,
+// with the gap it floats above it, as one stiff thing.
 const HEAD_R = 48;
 const TIP_R = 6;
 const AXIS = TEARDROP_BOX.height - TIP_R - TEARDROP_HEAD.y;
@@ -46,14 +46,19 @@ const AXIS = TEARDROP_BOX.height - TIP_R - TEARDROP_HEAD.y;
 const PHOTO_INSET = 5;
 // How far away the eye is, in drawing units: a head tipped towards you grows.
 const EYE = 400;
-// Half the canvas the pin is drawn on around its pivot, room for any lean.
-const REACH = 160;
+// Half the canvas the pin is drawn on around its pivot, room for any lean
+// while lifted.
+const REACH = 260;
 // The shadow: the pin laid flat on the floor, falling away from you, in the
-// floor's perspective; from the seat under my pin, from the tip of a friend's,
-// which has no dot to mark its seat. Its length against the pin's, and how
+// floor's perspective; a gap away from the dot under my pin, which floats
+// above it, from the tip of a friend's, which has no dot. Its length against the pin's, and how
 // dark (`pinShadowOpacity` in the theme); lifted, it fades.
 const SHADOW_LENGTH = 0.7;
 const SHADOW_LIFTED_OPACITY = 0.5;
+// The dot's own shadow, falling away from you, barely there: how far, against
+// the dot, and how much of the pin's shadow's darkness it has.
+const DOT_SHADOW_OFFSET = 0.15;
+const DOT_SHADOW_OPACITY = 0.5;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -73,19 +78,29 @@ export function pinSize(viewportWidth: number, scale = 1) {
 
 /**
  * Where the pin's head falls on screen, how big it looks, and the outline
- * of the whole pin, tipped `angle` sideways and `pitch` towards (−) or away
- * from (+) you. Coordinates are drawing units from the pivot.
+ * of the whole pin, its small ball's centre `base` above the pivot, tipped
+ * `angle` sideways and `pitch` towards (−) or away from (+) you about it.
+ * Coordinates are drawing units from the pivot.
  */
-function tippedPin(angle: number, pitch: number) {
+function tippedPin(angle: number, pitch: number, base: number) {
   "worklet";
   const toward = -Math.sin(pitch);
-  const scale = EYE / (EYE - AXIS * toward);
-  const x = AXIS * scale * Math.sin(angle) * Math.cos(pitch);
-  const y = -AXIS * scale * Math.cos(angle) * Math.cos(pitch);
+  // The point `along` the pin from the pivot, and how big it looks there.
+  const at = (along: number) => {
+    const scale = EYE / (EYE - along * toward);
+    return {
+      x: along * scale * Math.sin(angle) * Math.cos(pitch),
+      y: -along * scale * Math.cos(angle) * Math.cos(pitch),
+      scale,
+    };
+  };
+  const tip = at(base);
+  const { x, y, scale } = at(base + AXIS);
   const r = HEAD_R * scale;
-  const apart = Math.hypot(x, y);
+  const tipR = TIP_R * tip.scale;
+  const apart = Math.hypot(x - tip.x, y - tip.y);
   const n = (value: number) => value.toFixed(2);
-  if (apart <= r - TIP_R) {
+  if (apart <= r - tipR) {
     // Pointing at you: the head hides the rest.
     return {
       x,
@@ -96,9 +111,9 @@ function tippedPin(angle: number, pitch: number) {
   }
   // The cone touches both balls where their radii are β off the line from
   // head to tip.
-  const ux = -x / apart;
-  const uy = -y / apart;
-  const cos = (r - TIP_R) / apart;
+  const ux = (tip.x - x) / apart;
+  const uy = (tip.y - y) / apart;
+  const cos = (r - tipR) / apart;
   const sin = Math.sqrt(1 - cos * cos);
   const side = (s: 1 | -1) => ({
     x: ux * cos - s * uy * sin,
@@ -113,8 +128,8 @@ function tippedPin(angle: number, pitch: number) {
     d: [
       `M${n(x + r * left.x)} ${n(y + r * left.y)}`,
       `A${n(r)} ${n(r)} 0 1 1 ${n(x + r * right.x)} ${n(y + r * right.y)}`,
-      `L${n(TIP_R * right.x)} ${n(TIP_R * right.y)}`,
-      `A${TIP_R} ${TIP_R} 0 0 1 ${n(TIP_R * left.x)} ${n(TIP_R * left.y)}`,
+      `L${n(tip.x + tipR * right.x)} ${n(tip.y + tipR * right.y)}`,
+      `A${n(tipR)} ${n(tipR)} 0 0 1 ${n(tip.x + tipR * left.x)} ${n(tip.y + tipR * left.y)}`,
       "Z",
     ].join(""),
   };
@@ -226,13 +241,20 @@ export default function Pin({
     );
   }, [lifted, lift]);
 
+  // Drawn tipped towards or away from you only; the lean turns the whole pin,
+  // head and all, about the point.
   const shape = useDerivedValue(() =>
-    tippedPin(angle?.value ?? 0, pitch?.value ?? 0),
+    tippedPin(
+      0,
+      pitch?.value ?? 0,
+      // The small ball's centre above the point: the gap under the old box's
+      // bottom, and the ball's radius.
+      TEARDROP_BOX.height * (lift.value - 1) + TIP_R,
+    ),
   );
   const outline = useAnimatedProps(() => ({ d: shape.value.d }));
-  // The pivot: the old box's bottom, less the tip ball's radius.
-  const raise = useAnimatedStyle(() => ({
-    transform: [{ translateY: -height * (lift.value - 1) - TIP_R * unit }],
+  const lean = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${angle?.value ?? 0}rad` }],
   }));
   const head = useAnimatedStyle(() => ({
     transform: [
@@ -259,9 +281,16 @@ export default function Pin({
       transform: [
         // Flat until the floor has been laid out.
         ...(floor?.height ? floorLean(floor.height) : []),
-        // Leaning with the pin.
+        // Leaning with the pin, about the point.
         { rotateZ: `${angle?.value ?? 0}rad` },
-        ...(withDot ? [] : [{ translateY: -height * (PIN_LIFT_AT_REST - 1) }]),
+        // Mine floats above its dot, so its shadow starts the gap's shadow
+        // away from it, and slides further off as it's lifted, as a shadow in
+        // sunlight.
+        {
+          translateY: withDot
+            ? -height * SHADOW_LENGTH * (lift.value - 1)
+            : -height * (PIN_LIFT_AT_REST - 1),
+        },
       ],
     };
   });
@@ -294,7 +323,7 @@ export default function Pin({
           <Path d={TEARDROP} fill="#000" fillOpacity={theme.pinShadowOpacity} />
         </Svg>
       </Animated.View>
-      <Animated.View style={[styles.anchor, raise]}>
+      <Animated.View style={[styles.anchor, lean]}>
         <Svg
           style={{ position: "absolute", left: -canvas, top: -canvas }}
           width={2 * canvas}
@@ -337,6 +366,22 @@ export default function Pin({
           )}
         </Animated.View>
       </Animated.View>
+      {withDot && (
+        <View
+          style={{
+            position: "absolute",
+            width: dot,
+            height: dot,
+            borderRadius: dot / 2,
+            backgroundColor: "#000",
+            opacity: theme.pinShadowOpacity * DOT_SHADOW_OPACITY,
+            transform: [
+              { translateX: -dot / 2 },
+              { translateY: -dot / 2 - dot * DOT_SHADOW_OFFSET },
+            ],
+          }}
+        />
+      )}
       {withDot && (
         <View
           style={{
