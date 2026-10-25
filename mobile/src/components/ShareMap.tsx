@@ -12,8 +12,9 @@ import {
   gridToPercentage,
 } from "@shared/grid";
 import { PIN_COLOR } from "@shared/pin";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { type ComponentRef, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -23,16 +24,16 @@ import {
   View,
 } from "react-native";
 import Animated, { Easing, Keyframe, ZoomOut } from "react-native-reanimated";
-import { api } from "@/lib/api";
+import { api, webUrl } from "@/lib/api";
 import { t, time } from "@/lib/i18n";
 import { locationUrl } from "@/lib/links";
-import { useToken } from "@/lib/session";
+import { useSession, useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
 import { SHARING_COLOR } from "@/lib/theme";
 import FloorPoint from "./FloorPoint";
 import FriendPin from "./FriendPin";
 import RoundButton from "./RoundButton";
-import ShareCard from "./ShareCard";
+import ShareCard, { type ShareCardHandle } from "./ShareCard";
 import TouchMap from "./TouchMap";
 
 // Grows in over 80 ms, just past full size, and settles back in 100 ms: one
@@ -128,13 +129,22 @@ export default function ShareMap({
 }: Props) {
   const router = useRouter();
   const token = useToken();
+  const { session } = useSession();
   const { width } = useWindowDimensions();
   const [placed, setPlaced] = useState<GridPosition | undefined>();
+  // Where the share card's pin stands: the last place, kept while the pin is
+  // dragged, so letting go only moves the pin rather than building the card's
+  // map again.
+  const [cardAt, setCardAt] = useState<GridPosition | undefined>();
+  function place(position: GridPosition | undefined) {
+    setPlaced(position);
+    if (position) setCardAt(position);
+  }
   // The friend whose pin was tapped, labelled with their name.
   const [picked, setPicked] = useState<string | null>(null);
   // When my seat stops being shared with friends, while it is.
   const [sharedUntil, setSharedUntil] = useState<Date | null>(null);
-  const card = useRef<ComponentRef<typeof View>>(null);
+  const card = useRef<ShareCardHandle>(null);
 
   // Whether my seat is already shared, from an earlier visit.
   useEffect(() => {
@@ -167,6 +177,20 @@ export default function ShareMap({
     } catch {
       Alert.alert(t.couldNotStopSharing, t.checkNetwork);
     }
+  }
+
+  async function shareImage() {
+    if (!url) return;
+    // My photo on the card's pin, loaded before the card is captured.
+    const avatarUrl =
+      session.status === "signed-in" ? session.user.avatarUrl : null;
+    if (avatarUrl) {
+      await Image.prefetch(webUrl(avatarUrl), "memory-disk").catch(() => {});
+    }
+    await shareLocation(url, (width) => {
+      if (!card.current) throw new Error("share card not laid out");
+      return card.current.capture(width);
+    });
   }
 
   async function shareWithFriends() {
@@ -225,15 +249,15 @@ export default function ShareMap({
     <View style={styles.container}>
       <TouchMap
         position={position}
-        onPlace={setPlaced}
+        onPlace={place}
         overlay={overlay}
         friendPins={seated}
         onTap={(id) => setPicked(id === picked ? null : id)}
       />
-      {placed && (
+      {cardAt && (
         // Laid out off-screen so it can be captured without being seen.
         <View style={styles.offscreen} pointerEvents="none">
-          <ShareCard ref={card} position={placed} />
+          <ShareCard ref={card} position={cardAt} />
         </View>
       )}
       {url && (
@@ -258,7 +282,7 @@ export default function ShareMap({
               icon={{ ios: "square.and.arrow.up", android: "ios_share" }}
               tint={PIN_COLOR}
               label={t.shareLocation}
-              onPress={() => shareLocation(url, card)}
+              onPress={shareImage}
             />
           </Animated.View>
         </View>
@@ -268,7 +292,9 @@ export default function ShareMap({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 40 },
+  // As narrow as the leaning floor allows: its near edge is ~13% wider than
+  // the map, and should stay clear of the screen's edges.
+  container: { flex: 1, paddingHorizontal: 28 },
   offscreen: { position: "absolute", left: -10000, top: 0 },
   actions: { position: "absolute", flexDirection: "row", gap: 16 },
 });

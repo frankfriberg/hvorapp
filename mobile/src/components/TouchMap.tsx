@@ -1,4 +1,5 @@
 import salen from "@shared/arenas/salen";
+import salenLevels from "@shared/arenas/salen-levels";
 import { type GridPosition, percentageToGrid } from "@shared/grid";
 import * as Haptics from "expo-haptics";
 import { type ComponentRef, type ReactNode, useRef, useState } from "react";
@@ -8,19 +9,27 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import Animated, {
-  runOnJS,
-  useAnimatedReaction,
-  useAnimatedStyle,
+import {
+  useDerivedValue,
   useFrameCallback,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
-import { floorTransform, toFloor, toScreen, useCompassTurn } from "@/lib/tilt";
-import ArenaMap from "./ArenaMap";
+import { t } from "@/lib/i18n";
+import {
+  type FloorView,
+  fit,
+  standHeight,
+  toPlane,
+  toScreen,
+  toStands,
+  useCompassTurn,
+} from "@/lib/tilt";
+import ArenaScene from "./ArenaScene";
 import FloorPoint, { FloorContext } from "./FloorPoint";
 import { friendPinSize } from "./FriendPin";
 import Pin from "./Pin";
+import RoundButton from "./RoundButton";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
 // doesn't cover it while dragging. Same as the web's touchMap.
@@ -55,6 +64,13 @@ const HOLD_MS = 150;
 const HOLD_SLOP_PX = 10;
 // Room around a friend pin that still counts as tapping it, in px.
 const TAP_SLOP_PX = 8;
+// How far in two fingers zoom the map, against the whole map facing north
+// or south, and how far they must twist it, in degrees, before it stops
+// following the compass and turns with them.
+const MAX_ZOOM = 6;
+const TWIST_DEG = 8;
+// How long the map takes to go back to how the compass has it, in ms.
+const RESET_MS = 500;
 
 type Props = {
   position?: GridPosition;
@@ -84,12 +100,27 @@ export default function TouchMap({
 
   const pinX = useSharedValue(position?.percentageX ?? 0);
   const pinY = useSharedValue(position?.percentageY ?? 0);
-  const turn = useCompassTurn();
+  const { turn, manual, resume } = useCompassTurn();
+  const zoom = useSharedValue(1);
+  const pan = useSharedValue({ x: 0, y: 0 });
+  const view = useDerivedValue<FloorView>(() => ({
+    turn: turn.value,
+    zoom: zoom.value,
+    panX: pan.value.x,
+    panY: pan.value.y,
+  }));
+  // Zoomed, moved or turned by hand: then there's a way back.
+  const [moved, setMoved] = useState(false);
   const layout = useSharedValue({ width: 0, height: 0 });
   /** Where the pin stands on screen, in px from the map's corner. */
   function pinOnScreen(percentageX: number, percentageY: number) {
     "worklet";
-    const at = toScreen(turn.value, percentageX, percentageY);
+    const at = toScreen(
+      view.value,
+      percentageX,
+      percentageY,
+      standHeight(percentageX, percentageY),
+    );
     return {
       x: (at.percentageX / 100) * layout.value.width,
       y: (at.percentageY / 100) * layout.value.height,
@@ -139,6 +170,19 @@ export default function TouchMap({
     timer: ReturnType<typeof setTimeout>;
   } | null>(null);
   const holding = useRef(false);
+  // Fingers moving the map rather than the pin: one sliding it, two zooming,
+  // turning and sliding it, or done with that until they all lift.
+  const moving = useRef<
+    | { fingers: 1; start: { x: number; y: number }; from: FloorView }
+    | {
+        fingers: 2;
+        start: [{ x: number; y: number }, { x: number; y: number }];
+        from: FloorView;
+        twisted: boolean;
+      }
+    | { fingers: 0 }
+    | null
+  >(null);
 
   // When the glide under way ends, so a drag doesn't cut it short.
   const glideEnd = useRef(0);
@@ -154,25 +198,11 @@ export default function TouchMap({
     setCurrent(next);
   }
 
-  // The rows show their side towards you: the map's bottom facing south, its
-  // top once turned to face north. Flipped halfway through the turn, when the
-  // sides are edge-on.
-  const [facingNorth, setFacingNorth] = useState(false);
-  useAnimatedReaction(
-    () => turn.value > 90,
-    (north, before) => {
-      if (north !== before) runOnJS(setFacingNorth)(north);
-    },
-  );
-  const floorStyle = useAnimatedStyle(() => ({
-    transform: floorTransform(size.height || 1, turn.value),
-  }));
-
   function positionAt(pageX: number, pageY: number): GridPosition {
     const { width, height } = size;
     // The finger is on the turned, leaning floor; find the point under it.
-    const floor = toFloor(
-      turn.value,
+    const floor = toStands(
+      view.value,
       ((pageX - origin.current.x) / width) * 100,
       ((pageY - origin.current.y - MARKER_LIFT_PX) / height) * 100,
     );
@@ -194,7 +224,12 @@ export default function TouchMap({
     const { width, height, float } = friendPinSize(windowWidth);
     let nearest: { id: string; distance: number } | null = null;
     for (const pin of friendPins) {
-      const at = toScreen(turn.value, pin.percentageX, pin.percentageY);
+      const at = toScreen(
+        view.value,
+        pin.percentageX,
+        pin.percentageY,
+        standHeight(pin.percentageX, pin.percentageY),
+      );
       const px = (at.percentageX / 100) * size.width;
       const py = (at.percentageY / 100) * size.height;
       // The pin stands above its seat, floating a little.
@@ -212,6 +247,7 @@ export default function TouchMap({
 
   function onGrant(e: GestureResponderEvent) {
     const { pageX, pageY } = e.nativeEvent;
+    moving.current = null;
     // Re-measure on every touch: the map can move with layout changes.
     viewRef.current?.measureInWindow((x, y) => {
       origin.current = { x, y };
@@ -246,10 +282,55 @@ export default function TouchMap({
     onPlace?.(undefined);
   }
 
+  /** Where a finger is on the plane the map moves in. */
+  function onPlane({ x, y }: { x: number; y: number }) {
+    return toPlane(
+      ((x - origin.current.x) / size.width) * 100,
+      ((y - origin.current.y) / size.height) * 100,
+    );
+  }
+
   function onMove(e: GestureResponderEvent) {
-    const { pageX, pageY } = e.nativeEvent;
+    const { pageX, pageY, touches } = e.nativeEvent;
     if (!holding.current) {
-      // Slid away before it was held: not a hold, nor a tap.
+      if (touches.length >= 2) {
+        // Two fingers: no pin, no tap; the map zooms and turns with them.
+        if (press.current) clearTimeout(press.current.timer);
+        press.current = null;
+        const fingers = [
+          { x: touches[0].pageX, y: touches[0].pageY },
+          { x: touches[1].pageX, y: touches[1].pageY },
+        ] as const;
+        if (moving.current?.fingers !== 2) {
+          moving.current = {
+            fingers: 2,
+            start: [fingers[0], fingers[1]],
+            from: view.value,
+            twisted: false,
+          };
+          return;
+        }
+        pinch(moving.current, fingers);
+        return;
+      }
+      if (moving.current?.fingers === 2) {
+        // One lifted: the rest of the touch does nothing.
+        moving.current = { fingers: 0 };
+      }
+      if (moving.current?.fingers === 0) return;
+      if (moving.current?.fingers === 1) {
+        const start = onPlane(moving.current.start);
+        const now = onPlane({ x: pageX, y: pageY });
+        const { from } = moving.current;
+        pan.value = clampPan(
+          from.panX + now.x - start.x,
+          from.panY + now.y - start.y,
+          from,
+        );
+        return;
+      }
+      // Slid away before it was held: not a hold, nor a tap, but sliding the
+      // map.
       const touch = press.current;
       if (!touch) return;
       touch.at = { x: pageX, y: pageY };
@@ -258,13 +339,91 @@ export default function TouchMap({
       ) {
         clearTimeout(touch.timer);
         press.current = null;
+        moving.current = { fingers: 1, start: touch.start, from: view.value };
       }
       return;
     }
     moveTo(positionAt(pageX, pageY));
   }
 
+  /**
+   * Zooms, turns and slides the map so the floor under each finger stays
+   * under it, as near as zooming in no further than MAX_ZOOM, the same
+   * close whichever way it's turned, nor out past the whole map allows; turning only once twisted past TWIST_DEG, when the
+   * map stops following the compass.
+   */
+  function pinch(
+    gesture: Extract<NonNullable<typeof moving.current>, { fingers: 2 }>,
+    fingers: readonly [{ x: number; y: number }, { x: number; y: number }],
+  ) {
+    const [a0, b0] = gesture.start.map(onPlane);
+    const [a1, b1] = fingers.map(onPlane);
+    const { from } = gesture;
+    const spread =
+      Math.hypot(b1.x - a1.x, b1.y - a1.y) /
+      (Math.hypot(b0.x - a0.x, b0.y - a0.y) || 1);
+    let twist =
+      ((Math.atan2(b1.y - a1.y, b1.x - a1.x) -
+        Math.atan2(b0.y - a0.y, b0.x - a0.x)) *
+        180) /
+      Math.PI;
+    twist = ((twist + 540) % 360) - 180;
+    if (!gesture.twisted && Math.abs(twist) > TWIST_DEG) {
+      gesture.twisted = true;
+      manual.value = true;
+      setMoved(true);
+    }
+    if (!gesture.twisted) twist = 0;
+    const nextTurn = from.turn + twist;
+    // Turned across the screen the map is shrunk to fit; zooming in makes
+    // up for that, so it gets as close as when it's straight.
+    const nextZoom = Math.min(
+      Math.max(from.zoom * spread, 1),
+      MAX_ZOOM / fit(nextTurn),
+    );
+    // The point between the fingers stays between them: the map's offset
+    // from it scaled and turned with the map.
+    const ratio = (fit(nextTurn) * nextZoom) / (fit(from.turn) * from.zoom);
+    const rad = (twist * Math.PI) / 180;
+    const [mx0, my0] = [(a0.x + b0.x) / 2, (a0.y + b0.y) / 2];
+    const [mx1, my1] = [(a1.x + b1.x) / 2, (a1.y + b1.y) / 2];
+    const [ox, oy] = [from.panX - mx0, from.panY - my0];
+    if (gesture.twisted) turn.value = nextTurn;
+    zoom.value = nextZoom;
+    pan.value = clampPan(
+      mx1 + ratio * (ox * Math.cos(rad) - oy * Math.sin(rad)),
+      my1 + ratio * (ox * Math.sin(rad) + oy * Math.cos(rad)),
+      { ...from, turn: nextTurn, zoom: nextZoom },
+    );
+  }
+
+  /** A slide that keeps the map's middle on screen. */
+  function clampPan(x: number, y: number, seen: FloorView) {
+    const reach = (fit(seen.turn) * seen.zoom) / 2;
+    const aspect = salen.width / salen.height;
+    return {
+      x: Math.min(Math.max(x, -reach * aspect), reach * aspect),
+      y: Math.min(Math.max(y, -reach), reach),
+    };
+  }
+
+  /** Back to the whole map, turned as the compass says. */
+  function resetView() {
+    resume();
+    zoom.value = withTiming(1, { duration: RESET_MS });
+    pan.value = withTiming({ x: 0, y: 0 }, { duration: RESET_MS });
+    setMoved(false);
+  }
+
   function onRelease(e: GestureResponderEvent) {
+    if (moving.current) {
+      // Moved the map: no tap, and a way back to how it was.
+      moving.current = null;
+      if (zoom.value !== 1 || pan.value.x !== 0 || pan.value.y !== 0) {
+        setMoved(true);
+      }
+      return;
+    }
     if (!holding.current) {
       const touch = press.current;
       press.current = null;
@@ -305,18 +464,13 @@ export default function TouchMap({
       // A drag cut short by the system (a call, a gesture) still places the pin.
       onResponderTerminate={onRelease}
     >
-      {/* The leaning floor's near half stands in front of the screen, and iOS
-          would draw it over the pins; a flat wrapper flattens it behind them. */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Animated.View style={[StyleSheet.absoluteFill, floorStyle]}>
-          <ArenaMap
-            arena={salen}
-            style={StyleSheet.absoluteFill}
-            raised={facingNorth ? "north" : "south"}
-          />
-        </Animated.View>
-      </View>
-      <FloorContext.Provider value={{ ...size, turn }}>
+      <ArenaScene
+        arena={salen}
+        levels={salenLevels}
+        view={view}
+        style={StyleSheet.absoluteFill}
+      />
+      <FloorContext.Provider value={{ ...size, turn, zoom, pan, stands: true }}>
         {overlay}
         {current && (
           <FloorPoint percentageX={pinX} percentageY={pinY}>
@@ -331,10 +485,20 @@ export default function TouchMap({
           </FloorPoint>
         )}
       </FloorContext.Provider>
+      {moved && (
+        <View style={styles.reset}>
+          <RoundButton
+            icon={{ ios: "location.north.line.fill", android: "explore" }}
+            label={t.resetView}
+            onPress={resetView}
+          />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   map: { width: "100%", aspectRatio: salen.width / salen.height },
+  reset: { position: "absolute", left: 0, top: 0 },
 });

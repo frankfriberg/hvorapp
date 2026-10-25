@@ -113,6 +113,12 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `npm run arena:build -- salen`; a test fails while they disagree. Colours are
   `ARENA_COLORS` in `shared/arena.ts`. The web draws it in `map/arenaMap.tsx`, the
   OG image via `arenaToSvg`, the app in `mobile/src/components/ArenaMap.tsx`.
+- **The app's 3D map is built from levels.** `public/arena/salen_3d-raw.svg` is a
+  Figma export with layer names as ids: `stairN` and `stageN` (N × 9 units high, one shared rise),
+  `sounddeckN` (a 6-unit box on `stairN`), columns in `Columns`, seats in the `Overlay`
+  group. Where levels overlap the higher one wins. `npm run arena:build -- salen`
+  turns it into `shared/arenas/salen-levels.ts` (kept out of the web bundle);
+  the multipliers are constants in `scripts/arena-geometry.mjs`.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
 - **`shared/` is code both apps import** (`@shared/*` in each), along with
   `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to

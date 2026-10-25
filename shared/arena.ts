@@ -29,6 +29,34 @@ export type Arena = {
   shapes: ArenaShape[];
 };
 
+/**
+ * A level of an arena built in 3D: a stand's step, the stage or a step up to
+ * it, or the sound deck's box. Where levels overlap, the higher one is there.
+ */
+export type ArenaLevel = {
+  part: "stair" | "stage" | "deck";
+  /** How high its top is, in arena units. */
+  height: number;
+  /** Its outline as x, y, x, y, …, closed. */
+  ring: number[];
+};
+
+/**
+ * An arena's levels and seats, built in 3D from
+ * `public/arena/<name>_3d-raw.svg` by `npm run arena:build`; in the same
+ * coordinate space as its `Arena`, which they can run past the edge of.
+ */
+export type ArenaLevels = {
+  width: number;
+  height: number;
+  /** Highest first. */
+  levels: ArenaLevel[];
+  /** Each seat as its centre x, y, width, height and turn in degrees. */
+  seats: number[];
+  /** Each column's outline as x, y, x, y, …, closed. */
+  columns: number[][];
+};
+
 export type ArenaColors = Record<ArenaShapeKind, string>;
 
 export const ARENA_COLORS: ArenaColors = {
@@ -40,7 +68,9 @@ export const ARENA_COLORS: ArenaColors = {
 /**
  * Every colour a map in perspective needs: the shapes', the floor under them,
  * the top of the stage and its steps, and the sides it gives rows, columns
- * (lit top), the stage and the tiers.
+ * (lit top), the stage and the tiers; and the fronts of the stands' steps
+ * built in 3D, in shadow, the tops of every other step, shaded off the
+ * floor, and the sound deck's box and its front, facing the stage.
  */
 export type ArenaPalette = ArenaColors & {
   floor: string;
@@ -49,6 +79,10 @@ export type ArenaPalette = ArenaColors & {
   columnTop: string;
   stageSide: string;
   tierSide: string;
+  stepFront: string;
+  stepTop: string;
+  deck: string;
+  deckFront: string;
 };
 
 export const ARENA_PALETTE: ArenaPalette = {
@@ -59,6 +93,10 @@ export const ARENA_PALETTE: ArenaPalette = {
   columnTop: "#cfcfcf",
   stageSide: "#e2e2e2",
   tierSide: "#d2d2d2",
+  stepFront: "#b4b9c2",
+  stepTop: "#eceef2",
+  deck: "#55575c",
+  deckFront: "#8d96a6",
 };
 
 /** The same in dark mode: a dark grey floor, dimmer rows, sides lighter than it. */
@@ -72,6 +110,10 @@ export const ARENA_DARK_PALETTE: ArenaPalette = {
   columnTop: "#7a7a80",
   stageSide: "#3a3a3f",
   tierSide: "#2c2c30",
+  stepFront: "#0c0c0e",
+  stepTop: "#252528",
+  deck: "#3c3d42",
+  deckFront: "#5d6678",
 };
 
 /** Stroke width of `outline` shapes, in arena units. */

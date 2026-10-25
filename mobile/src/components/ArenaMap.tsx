@@ -1,37 +1,20 @@
-import {
-  ARENA_OUTLINE_WIDTH,
-  type Arena,
-  type ArenaSegment,
-  pathSegments,
-} from "@shared/arena";
+import { ARENA_OUTLINE_WIDTH, type Arena } from "@shared/arena";
 import { memo, useMemo } from "react";
 import { type StyleProp, View, type ViewStyle } from "react-native";
 import Svg, { G, Path } from "react-native-svg";
+import { COLUMN_HEIGHT, ROW_HEIGHT, STEP_RISE, tierLines } from "@/lib/arena";
 import { useTheme } from "@/lib/theme";
 
-// How tall rows stand, in arena units: about 2 points on a phone.
-const ROW_HEIGHT = 10;
-// How tall the columns (the map's markers) stand, and how far apart the
-// copies of their base are drawn to fill in their side: under the base's
-// diameter (about 10), so the side looks solid.
-const COLUMN_HEIGHT = 45; // About 9 points on a phone.
+// How far apart the copies of a column's base are drawn to fill in its side:
+// under the base's diameter (about 10), so the side looks solid.
 const COLUMN_STEP = 5;
 const COLUMN_STEPS = Array.from(
   { length: COLUMN_HEIGHT / COLUMN_STEP },
   (_, i) => i * COLUMN_STEP,
 );
-// How much each step up to the stage rises (under 1 point on a phone): the
-// stage stands a rise for each step and one more, and each step a rise lower
-// than the one above it, so every step has room to stand on. And how far apart
-// the copies of a base are drawn to fill in its side.
-const STEP_RISE = 3.75;
+// How far apart the copies of a stage block's base are drawn to fill in its
+// side.
 const STAGE_STEP = 2;
-// How tall a tier's side stands, about 1.5 points on a phone.
-const TIER_RISE = 7.5;
-
-// Tier edges shorter than this, end to end, are the short ones at the ends
-// of the rows; in `tall-tiers` the long ones stand twice as tall.
-const SHORT_TIER = 100;
 
 /**
  * The faces of the tiers the seats stand on that look towards the viewer:
@@ -43,28 +26,11 @@ const SHORT_TIER = 100;
 function tierFaces(arena: Arena, raised: "south" | "north") {
   const towards = raised === "south" ? 1 : -1;
   const half = arena.height / 2;
-  // The segments joined end to end into the lines they were drawn as.
-  const lines: { tall: boolean; segments: ArenaSegment[] }[] = [];
-  for (const { d, part } of arena.shapes) {
-    if (part !== "tiers" && part !== "tall-tiers") continue;
-    for (const segment of pathSegments(d)) {
-      const line = lines.at(-1);
-      const last = line?.segments.at(-1);
-      if (line && last && last[2] === segment[0] && last[3] === segment[1]) {
-        line.segments.push(segment);
-      } else lines.push({ tall: part === "tall-tiers", segments: [segment] });
-    }
-  }
   const faces = { long: "", short: "" };
-  for (const { tall, segments } of lines) {
-    const length = segments.reduce(
-      (sum, [x1, y1, x2, y2]) => sum + Math.hypot(x2 - x1, y2 - y1),
-      0,
-    );
-    const short = length < SHORT_TIER;
+  for (const { short, rise, segments } of tierLines(arena)) {
     for (const [x1, y1, x2, y2] of segments) {
       const far = raised === "south" ? y1 + y2 < 2 * half : y1 + y2 > 2 * half;
-      const drop = towards * TIER_RISE * (tall && !short ? 2 : 1);
+      const drop = towards * rise;
       if (far && Math.abs(x2 - x1) > 0.5) {
         faces[short ? "short" : "long"] +=
           `M${x1} ${y1}L${x2} ${y2}L${x2} ${y2 + drop}L${x1} ${y1 + drop}Z`;
