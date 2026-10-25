@@ -1,3 +1,4 @@
+import { nearestSeat } from "@shared/arena";
 import salen from "@shared/arenas/salen";
 import salenLevels from "@shared/arenas/salen-levels";
 import { type GridPosition, percentageToGrid } from "@shared/grid";
@@ -248,7 +249,24 @@ export default function TouchMap({
     const clamp = (value: number) => Math.min(Math.max(value, 0), 100);
     const percentageX = clamp(floor.percentageX);
     const percentageY = clamp(floor.percentageY);
-    // Not snapped: the link and friends get the pin where it stands.
+    // Not snapped while dragged; `onSeat` puts it on a seat when dropped.
+    return {
+      percentageX,
+      percentageY,
+      ...percentageToGrid(percentageX, percentageY),
+    };
+  }
+
+  /** On the seat nearest it, if it was dropped on or by one. */
+  function onSeat(position: GridPosition): GridPosition {
+    const seat = nearestSeat(
+      salenLevels.seats,
+      (position.percentageX / 100) * salen.width,
+      (position.percentageY / 100) * salen.height,
+    );
+    if (!seat) return position;
+    const percentageX = (seat.x / salen.width) * 100;
+    const percentageY = (seat.y / salen.height) * 100;
     return {
       percentageX,
       percentageY,
@@ -487,7 +505,7 @@ export default function TouchMap({
       return;
     }
     holding.current = false;
-    const placed = positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY);
+    const placed = onSeat(positionAt(e.nativeEvent.pageX, e.nativeEvent.pageY));
     moveTo(placed);
     setIsMoving(false);
     onPlace?.(placed);
@@ -576,7 +594,13 @@ export default function TouchMap({
       />
       <View
         ref={viewRef}
-        style={[styles.map, { marginTop: top }]}
+        // An explicit width: from the margins alone, the layout takes `top`
+        // off the height that `aspectRatio` gives, and the box comes out
+        // narrower, against the left.
+        style={[
+          styles.map,
+          { marginTop: top, width: windowWidth - 2 * MAP_MARGIN },
+        ]}
         pointerEvents="box-none"
         onLayout={(e) => {
           const { x, y, width, height } = e.nativeEvent.layout;
@@ -604,12 +628,14 @@ export default function TouchMap({
   );
 }
 
+// As narrow as the leaning floor allows: its near edge is ~13% wider than the
+// map, and should stay clear of the screen's edges.
+const MAP_MARGIN = 28;
+
 const styles = StyleSheet.create({
   surface: { flex: 1 },
-  // As narrow as the leaning floor allows: its near edge is ~13% wider than
-  // the map, and should stay clear of the screen's edges.
   map: {
-    marginHorizontal: 28,
+    alignSelf: "center",
     aspectRatio: salen.width / salen.height,
   },
   reset: { position: "absolute", left: 0, top: 0 },

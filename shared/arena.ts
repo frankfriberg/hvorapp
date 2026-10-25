@@ -200,3 +200,24 @@ export function arenaToSvg(
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${arena.width}" height="${arena.height}" viewBox="0 0 ${arena.width} ${arena.height}" fill="none">${paths}</svg>`;
 }
+
+/**
+ * The centre of the seat nearest a point, or null when none is within a
+ * seat's size of it: the stage and the aisles keep the point as it is.
+ */
+export function nearestSeat(
+  seats: number[],
+  x: number,
+  y: number,
+): { x: number; y: number } | null {
+  let nearest: { x: number; y: number } | null = null;
+  let best = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < seats.length; i += 5) {
+    const distance = Math.hypot(seats[i] - x, seats[i + 1] - y);
+    if (distance < best && distance <= Math.max(seats[i + 2], seats[i + 3])) {
+      best = distance;
+      nearest = { x: seats[i], y: seats[i + 1] };
+    }
+  }
+  return nearest;
+}
