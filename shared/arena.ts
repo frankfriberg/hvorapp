@@ -69,8 +69,9 @@ export const ARENA_COLORS: ArenaColors = {
  * Every colour a map in perspective needs: the shapes', the floor under them,
  * the top of the stage and its steps, and the sides it gives rows, columns
  * (lit top), the stage and the tiers; and the fronts of the stands' steps
- * built in 3D, in shadow, the tops of every other step, shaded off the
- * floor, and the sound deck's box and its front, facing the stage.
+ * built in 3D, in shadow, the tops of the steps, every other one shaded more,
+ * both apart from the floor, the tops of every other step up to the stage,
+ * and the sound deck's box and its sides.
  */
 export type ArenaPalette = ArenaColors & {
   floor: string;
@@ -81,8 +82,10 @@ export type ArenaPalette = ArenaColors & {
   tierSide: string;
   stepFront: string;
   stepTop: string;
+  stairTop: string;
+  stageStepTop: string;
   deck: string;
-  deckFront: string;
+  deckSide: string;
 };
 
 export const ARENA_PALETTE: ArenaPalette = {
@@ -95,8 +98,10 @@ export const ARENA_PALETTE: ArenaPalette = {
   tierSide: "#d2d2d2",
   stepFront: "#b4b9c2",
   stepTop: "#eceef2",
+  stairTop: "#f6f7f9",
+  stageStepTop: "#dcdee2",
   deck: "#55575c",
-  deckFront: "#8d96a6",
+  deckSide: "#8d96a6",
 };
 
 /** The same in dark mode: a dark grey floor, dimmer rows, sides lighter than it. */
@@ -112,8 +117,10 @@ export const ARENA_DARK_PALETTE: ArenaPalette = {
   tierSide: "#2c2c30",
   stepFront: "#0c0c0e",
   stepTop: "#252528",
+  stairTop: "#212124",
+  stageStepTop: "#3c3c40",
   deck: "#3c3d42",
-  deckFront: "#5d6678",
+  deckSide: "#5d6678",
 };
 
 /** Stroke width of `outline` shapes, in arena units. */

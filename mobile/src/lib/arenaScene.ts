@@ -1,9 +1,4 @@
-import type {
-  ArenaLevel,
-  ArenaLevels,
-  ArenaPalette,
-  ArenaSegment,
-} from "@shared/arena";
+import type { ArenaLevel, ArenaLevels, ArenaPalette } from "@shared/arena";
 import * as THREE from "three";
 import { arenaHeights, COLUMN_HEIGHT, ROW_HEIGHT } from "@/lib/arena";
 
@@ -66,8 +61,10 @@ type Paint = keyof Pick<
   | "floor"
   | "stepFront"
   | "stepTop"
+  | "stairTop"
+  | "stageStepTop"
   | "deck"
-  | "deckFront"
+  | "deckSide"
 >;
 const PAINTS: Paint[] = [
   "row",
@@ -80,15 +77,23 @@ const PAINTS: Paint[] = [
   "floor",
   "stepFront",
   "stepTop",
+  "stairTop",
+  "stageStepTop",
   "deck",
-  "deckFront",
+  "deckSide",
 ];
 
-/** Each level's top and sides. */
-const LEVEL_PAINTS: Record<ArenaLevel["part"], [top: Paint, side: Paint]> = {
-  stair: ["floor", "stepFront"],
-  stage: ["stageTop", "stageSide"],
-  deck: ["deck", "deck"],
+/**
+ * Each level's top and sides, and the top of every other one of its steps,
+ * shaded so each step stands apart from the one next to it.
+ */
+const LEVEL_PAINTS: Record<
+  ArenaLevel["part"],
+  [top: Paint, side: Paint, shaded: Paint]
+> = {
+  stair: ["stairTop", "stepFront", "stepTop"],
+  stage: ["stageTop", "stageSide", "stageStepTop"],
+  deck: ["deck", "deckSide", "deck"],
 };
 
 /** A level's flat x, y, x, y, … as a ring. */
@@ -98,46 +103,24 @@ function toRing({ ring: flat }: ArenaLevel): Ring {
   return ring;
 }
 
-/** The middle of some points, by their average. */
-function middleOf(points: Ring): [number, number] {
-  return [
-    points.reduce((sum, [x]) => sum + x, 0) / points.length,
-    points.reduce((sum, [, y]) => sum + y, 0) / points.length,
-  ];
-}
-
 /**
- * How the sound deck's sides are painted: its front, the sides facing the
- * stage (within 45°), apart from the rest, so it reads as a desk.
- */
-function deckSides(ring: Ring, [stageX, stageY]: [number, number]) {
-  const [mx, my] = middleOf(ring);
-  const toStage = Math.atan2(stageY - my, stageX - mx);
-  return ([x1, y1, x2, y2]: ArenaSegment): Paint => {
-    // Across the side, turned away from the deck's middle.
-    let [nx, ny] = [y2 - y1, x1 - x2];
-    if (nx * ((x1 + x2) / 2 - mx) + ny * ((y1 + y2) / 2 - my) < 0) {
-      [nx, ny] = [-nx, -ny];
-    }
-    let turn = Math.abs(Math.atan2(ny, nx) - toStage);
-    if (turn > Math.PI) turn = 2 * Math.PI - turn;
-    return turn < Math.PI / 4 ? "deckFront" : "deck";
-  };
-}
-
-/**
- * Which levels' tops are shaded: every other step up from the floor, by
- * height, so the steps show from any side, not only where their fronts face
- * the eye.
+ * Which levels' tops are shaded: every other step up from the floor, of the
+ * stands or the stage, by height, so the steps show from any side, not only
+ * where their fronts face the eye.
  */
 function stepShades(levels: ArenaLevel[]) {
-  const heights = [
-    ...new Set(
-      levels.filter(({ part }) => part === "stair").map(({ height }) => height),
-    ),
-  ].sort((a, b) => a - b);
+  const heights = (part: ArenaLevel["part"]) =>
+    [
+      ...new Set(
+        levels
+          .filter((level) => level.part === part)
+          .map(({ height }) => height),
+      ),
+    ].sort((a, b) => a - b);
+  const steps = { stair: heights("stair"), stage: heights("stage") };
   return levels.map(
-    ({ part, height }) => part === "stair" && heights.indexOf(height) % 2 === 0,
+    ({ part, height }) =>
+      part !== "deck" && steps[part].indexOf(height) % 2 === 0,
   );
 }
 
@@ -172,14 +155,12 @@ export function buildArena(
     base: number,
     top: number,
     topPaint: Paint,
-    sidePaint: Paint | ((side: ArenaSegment) => Paint),
+    sidePaint: Paint,
   ) => {
     ring.forEach(([x1, y1], j) => {
       const [x2, y2] = ring[(j + 1) % ring.length];
       quad(
-        typeof sidePaint === "function"
-          ? sidePaint([x1, y1, x2, y2])
-          : sidePaint,
+        sidePaint,
         at(x1, y1, base),
         at(x2, y2, base),
         at(x2, y2, top),
@@ -214,20 +195,16 @@ export function buildArena(
   // what it is: a step's edge is its front, not a line, and every other
   // step's top is shaded.
   const shaded = stepShades(levels.levels);
-  const stageAt = middleOf(
-    levels.levels.filter(({ part }) => part === "stage").flatMap(toRing),
-  );
   levels.levels.forEach((level, index) => {
     const { part, height } = level;
     const ring = toRing(level);
-    const [top, side] = LEVEL_PAINTS[part];
-    const ringPaint = part === "deck" ? deckSides(ring, stageAt) : side;
+    const [top, side, shade] = LEVEL_PAINTS[part];
     prism(
       rounded(ring, LEVEL_ROUNDING, LEVEL_CORNER_STEPS),
       0,
       height,
-      shaded[index] ? "stepTop" : top,
-      ringPaint,
+      shaded[index] ? shade : top,
+      side,
     );
   });
 

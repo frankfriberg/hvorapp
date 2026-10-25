@@ -1,4 +1,4 @@
-import { PIN_COLOR, PIN_DOT_VW, PIN_WIDTH_VW } from "@shared/pin";
+import { PIN_COLOR, PIN_DOT_VW } from "@shared/pin";
 import { Image } from "expo-image";
 import { useContext, useEffect } from "react";
 import { StyleSheet, View } from "react-native";
@@ -13,68 +13,38 @@ import Animated, {
 import Svg, { Circle, Path, Text as SvgText } from "react-native-svg";
 import { webUrl } from "@/lib/api";
 import { initials } from "@/lib/friends";
+import {
+  AXIS,
+  DOT_SHADOW_OFFSET,
+  DOT_SHADOW_OPACITY,
+  HEAD_R,
+  LIFT_SPRING,
+  PHOTO_INSET,
+  PIN_LIFT_AT_REST,
+  PIN_LIFT_MOVING,
+  pinSize,
+  SHADOW_LENGTH,
+  SHADOW_LIFTED_OPACITY,
+  TEARDROP_BOX,
+  TIP_R,
+} from "@/lib/pinShape";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 import { floorLean } from "@/lib/tilt";
 import { FloorContext } from "./FloorPoint";
 
-// The upright pin's drawing: a 100 × 128 box with the head's centre at HEAD.
-const TEARDROP_BOX = { width: 100, height: 128 };
-const TEARDROP_HEAD = { x: 50, y: 50 };
 // Its outline upright: a circle of radius 48 round HEAD drawn out along the
 // outer tangents to a tip rounded with radius 6, lowest at (50, 128).
 const TEARDROP =
   "M11.01 78A48 48 0 1 1 88.99 78L54.87 125.5A6 6 0 0 1 45.13 125.5Z";
 
-// public/pin.svg's box, which PIN_WIDTH_VW is the width of.
-const WEB_PIN_ASPECT = 316 / 250;
-
-// The web's pin transforms, translate(-50%, -115%) at rest and -150% while
-// dragging, expressed as fractions of the pin's height.
-const PIN_LIFT_AT_REST = 1.15;
-const PIN_LIFT_MOVING = 1.5;
-
-// The pin as a solid: a ball of radius HEAD_R and a small ball of radius
-// TIP_R, joined by the cone touching both, AXIS apart. Upright it is the
-// friend pin's teardrop. It pivots about the point it stands over, the dot,
-// with the gap it floats above it, as one stiff thing.
-const HEAD_R = 48;
-const TIP_R = 6;
-const AXIS = TEARDROP_BOX.height - TIP_R - TEARDROP_HEAD.y;
-// How far in from the head's edge a profile photo stops, in drawing units:
-// a ring of the pin's colour round it.
-const PHOTO_INSET = 5;
 // How far away the eye is, in drawing units: a head tipped towards you grows.
 const EYE = 400;
 // Half the canvas the pin is drawn on around its pivot, room for any lean
 // while lifted.
 const REACH = 260;
-// The shadow: the pin laid flat on the floor, falling away from you, in the
-// floor's perspective; a gap away from the dot under my pin, which floats
-// above it, from the tip of a friend's, which has no dot. Its length against the pin's, and how
-// dark (`pinShadowOpacity` in the theme); lifted, it fades.
-const SHADOW_LENGTH = 0.7;
-const SHADOW_LIFTED_OPACITY = 0.5;
-// The dot's own shadow, falling away from you, barely there: how far, against
-// the dot, and how much of the pin's shadow's darkness it has.
-const DOT_SHADOW_OFFSET = 0.15;
-const DOT_SHADOW_OPACITY = 0.5;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-
-/**
- * How big a pin at rest is on screen, in points: its width and height, and
- * how far above its point its tip floats.
- */
-export function pinSize(viewportWidth: number, scale = 1) {
-  const height =
-    ((viewportWidth * PIN_WIDTH_VW) / 100) * WEB_PIN_ASPECT * scale;
-  return {
-    width: (height * TEARDROP_BOX.width) / TEARDROP_BOX.height,
-    height,
-    float: height * (PIN_LIFT_AT_REST - 1),
-  };
-}
 
 /**
  * Where the pin's head falls on screen, how big it looks, and the outline
@@ -232,12 +202,9 @@ export default function Pin({
 
   const lift = useSharedValue(lifted ? PIN_LIFT_MOVING : PIN_LIFT_AT_REST);
   useEffect(() => {
-    // Picked up quick, with one small overshoot; set down without a bounce.
     lift.value = withSpring(
       lifted ? PIN_LIFT_MOVING : PIN_LIFT_AT_REST,
-      lifted
-        ? { damping: 38, stiffness: 700 }
-        : { damping: 60, stiffness: 700 },
+      lifted ? LIFT_SPRING.up : LIFT_SPRING.down,
     );
   }, [lifted, lift]);
 

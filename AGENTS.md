@@ -119,6 +119,8 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   group. Where levels overlap the higher one wins. `npm run arena:build -- salen`
   turns it into `shared/arenas/salen-levels.ts` (kept out of the web bundle);
   the multipliers are constants in `scripts/arena-geometry.mjs`.
+  Pins stand in the same scene (`mobile/src/lib/pinScene.ts`); their faces
+  (photo or initials) are captured off-screen by `PinFaces` and loaded as GL textures.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
 - **`shared/` is code both apps import** (`@shared/*` in each), along with
   `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to

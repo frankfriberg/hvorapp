@@ -1,8 +1,15 @@
 import salen from "@shared/arenas/salen";
 import salenLevels from "@shared/arenas/salen-levels";
 import { type GridPosition, percentageToGrid } from "@shared/grid";
+import { PIN_COLOR } from "@shared/pin";
 import * as Haptics from "expo-haptics";
-import { type ComponentRef, type ReactNode, useRef, useState } from "react";
+import {
+  type ComponentRef,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   type GestureResponderEvent,
   StyleSheet,
@@ -13,9 +20,21 @@ import {
   useDerivedValue,
   useFrameCallback,
   useSharedValue,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { colorForInitials, initials } from "@/lib/friends";
 import { t } from "@/lib/i18n";
+import type { PinFace } from "@/lib/pinScene";
+import {
+  friendPinSize,
+  LIFT_SPRING,
+  PIN_LIFT_AT_REST,
+  PIN_LIFT_MOVING,
+  pinGrowth,
+  pinSize,
+} from "@/lib/pinShape";
+import { useSession } from "@/lib/session";
 import {
   type FloorView,
   fit,
@@ -25,10 +44,9 @@ import {
   toStands,
   useCompassTurn,
 } from "@/lib/tilt";
-import ArenaScene from "./ArenaScene";
-import FloorPoint, { FloorContext } from "./FloorPoint";
-import { friendPinSize } from "./FriendPin";
-import Pin from "./Pin";
+import ArenaScene, { type ScenePin } from "./ArenaScene";
+import { FloorContext } from "./FloorPoint";
+import PinFaces, { type FaceRequest } from "./PinFaces";
 import RoundButton from "./RoundButton";
 
 // Vertical lift (px) applied to the placed marker so the user's fingertip
@@ -76,12 +94,20 @@ type Props = {
   position?: GridPosition;
   /** The placed position on release; `undefined` while the pin is dragged. */
   onPlace?: (position: GridPosition | undefined) => void;
-  /** Drawn over the floor under my pin: friends' seats, as `FloorPoint`s. */
+  /** Drawn over the map: labels on it, as `FloorPoint`s. */
   overlay?: ReactNode;
-  /** The friend pins in `overlay`, by id, for telling which one is tapped. */
-  friendPins?: { id: string; percentageX: number; percentageY: number }[];
+  /** Friends' pins, standing on their seats. */
+  friendPins?: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    percentageX: number;
+    percentageY: number;
+  }[];
   /** A tap: on a friend pin, its id; anywhere else, null. */
   onTap?: (id: string | null) => void;
+  /** Room above the map, which it's drawn under. */
+  top?: number;
 };
 
 export default function TouchMap({
@@ -90,13 +116,19 @@ export default function TouchMap({
   overlay,
   friendPins = [],
   onTap,
+  top = 0,
 }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const [size, setSize] = useState({ width: 0, height: 0 });
+  // Where the map's box is in the surface around it, which it's drawn over.
+  const [box, setBox] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [isMoving, setIsMoving] = useState(false);
   const [current, setCurrent] = useState<GridPosition | undefined>(position);
   const origin = useRef({ x: 0, y: 0 });
   const viewRef = useRef<ComponentRef<typeof View>>(null);
+
+  const { session } = useSession();
+  const me = session.status === "signed-in" ? session.user : null;
 
   const pinX = useSharedValue(position?.percentageX ?? 0);
   const pinY = useSharedValue(position?.percentageY ?? 0);
@@ -130,6 +162,13 @@ export default function TouchMap({
   const pitch = useSharedValue(0);
   const spin = useSharedValue({ angle: 0, pitch: 0 });
   const last = useSharedValue({ x: 0, y: 0, vx: 0, vy: 0 });
+  const lift = useSharedValue(PIN_LIFT_AT_REST);
+  useEffect(() => {
+    lift.value = withSpring(
+      isMoving ? PIN_LIFT_MOVING : PIN_LIFT_AT_REST,
+      isMoving ? LIFT_SPRING.up : LIFT_SPRING.down,
+    );
+  }, [isMoving, lift]);
   // How much of the swing the pin's motion gets; less while it glides over.
   const reach = useSharedValue(1);
   const swing = useFrameCallback(({ timeSincePreviousFrame }) => {
@@ -221,7 +260,14 @@ export default function TouchMap({
   function friendAt(pageX: number, pageY: number) {
     const x = pageX - origin.current.x;
     const y = pageY - origin.current.y;
-    const { width, height, float } = friendPinSize(windowWidth);
+    // As big as it's grown with the zoom.
+    const grown = pinGrowth(view.value.zoom);
+    const size = friendPinSize(windowWidth);
+    const [width, height, float] = [
+      size.width * grown,
+      size.height * grown,
+      size.float * grown,
+    ];
     let nearest: { id: string; distance: number } | null = null;
     for (const pin of friendPins) {
       const at = toScreen(
@@ -397,13 +443,20 @@ export default function TouchMap({
     );
   }
 
-  /** A slide that keeps the map's middle on screen. */
+  /**
+   * A slide that keeps some of the map on screen: its middle no further off
+   * than the edge of the map, as turned, is from it.
+   */
   function clampPan(x: number, y: number, seen: FloorView) {
-    const reach = (fit(seen.turn) * seen.zoom) / 2;
+    const half = (fit(seen.turn) * seen.zoom) / 2;
     const aspect = salen.width / salen.height;
+    const rad = (seen.turn * Math.PI) / 180;
+    const [cos, sin] = [Math.abs(Math.cos(rad)), Math.abs(Math.sin(rad))];
+    const across = half * (aspect * cos + sin);
+    const along = half * (aspect * sin + cos);
     return {
-      x: Math.min(Math.max(x, -reach * aspect), reach * aspect),
-      y: Math.min(Math.max(y, -reach), reach),
+      x: Math.min(Math.max(x, -across), across),
+      y: Math.min(Math.max(y, -along), along),
     };
   }
 
@@ -447,14 +500,59 @@ export default function TouchMap({
     }, SWING_SETTLE_MS);
   }
 
+  // Pictures of the faces on the pins' heads, by who and which photo.
+  const [faces, setFaces] = useState<Record<string, PinFace>>({});
+  const myFace = me && {
+    key: `${initials(me.name)} ${me.avatarUrl}`,
+    label: initials(me.name),
+    avatarUrl: me.avatarUrl ?? null,
+  };
+  const friendFaces = friendPins.map(({ name, avatarUrl }) => ({
+    key: `${initials(name)} ${avatarUrl}`,
+    label: initials(name),
+    avatarUrl,
+  }));
+  const wanted = new Map<string, FaceRequest>();
+  for (const face of [...friendFaces, ...(myFace ? [myFace] : [])]) {
+    if (!faces[face.key]) wanted.set(face.key, face);
+  }
+
+  // Heights on screen against the map's.
+  const pins: ScenePin[] = !size.height
+    ? []
+    : [
+        ...friendPins.map(({ id, name, percentageX, percentageY }, i) => ({
+          id,
+          percentageX,
+          percentageY,
+          color: colorForInitials(initials(name)),
+          height: friendPinSize(windowWidth).height / size.height,
+          face: faces[friendFaces[i].key] ?? null,
+        })),
+        ...(current
+          ? [
+              {
+                id: "me",
+                percentageX: pinX,
+                percentageY: pinY,
+                color: PIN_COLOR,
+                height: pinSize(windowWidth).height / size.height,
+                dot: true,
+                lift,
+                angle,
+                pitch,
+                face: myFace
+                  ? (faces[myFace.key] ?? null)
+                  : ("no one" as const),
+              },
+            ]
+          : []),
+      ];
+
   return (
+    // The whole screen moves the map and the pin, past the map's box too.
     <View
-      ref={viewRef}
-      style={styles.map}
-      onLayout={(e) => {
-        setSize(e.nativeEvent.layout);
-        layout.value = e.nativeEvent.layout;
-      }}
+      style={styles.surface}
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderTerminationRequest={() => false}
@@ -468,37 +566,51 @@ export default function TouchMap({
         arena={salen}
         levels={salenLevels}
         view={view}
+        pins={pins}
+        box={box}
         style={StyleSheet.absoluteFill}
       />
-      <FloorContext.Provider value={{ ...size, turn, zoom, pan, stands: true }}>
-        {overlay}
-        {current && (
-          <FloorPoint percentageX={pinX} percentageY={pinY}>
-            <Pin
-              percentageX={0}
-              percentageY={0}
-              viewportWidth={windowWidth}
-              lifted={isMoving}
-              angle={angle}
-              pitch={pitch}
+      <PinFaces
+        faces={[...wanted.values()]}
+        onFace={(key, face) => setFaces((had) => ({ ...had, [key]: face }))}
+      />
+      <View
+        ref={viewRef}
+        style={[styles.map, { marginTop: top }]}
+        pointerEvents="box-none"
+        onLayout={(e) => {
+          const { x, y, width, height } = e.nativeEvent.layout;
+          setSize({ width, height });
+          setBox({ x, y, width, height });
+          layout.value = { width, height };
+        }}
+      >
+        <FloorContext.Provider
+          value={{ ...size, turn, zoom, pan, stands: true }}
+        >
+          {overlay}
+        </FloorContext.Provider>
+        {moved && (
+          <View style={styles.reset}>
+            <RoundButton
+              icon={{ ios: "location.north.line.fill", android: "explore" }}
+              label={t.resetView}
+              onPress={resetView}
             />
-          </FloorPoint>
+          </View>
         )}
-      </FloorContext.Provider>
-      {moved && (
-        <View style={styles.reset}>
-          <RoundButton
-            icon={{ ios: "location.north.line.fill", android: "explore" }}
-            label={t.resetView}
-            onPress={resetView}
-          />
-        </View>
-      )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  map: { width: "100%", aspectRatio: salen.width / salen.height },
+  surface: { flex: 1 },
+  // As narrow as the leaning floor allows: its near edge is ~13% wider than
+  // the map, and should stay clear of the screen's edges.
+  map: {
+    marginHorizontal: 28,
+    aspectRatio: salen.width / salen.height,
+  },
   reset: { position: "absolute", left: 0, top: 0 },
 });

@@ -42,8 +42,6 @@ export default function RootLayout() {
           screenOptions={{
             title: "Hvor",
             headerShadowVisible: false,
-            // The map is a drag surface, so it must start below the header
-            // rather than scroll under it.
             headerTransparent: false,
             headerStyle: { backgroundColor: theme.background },
             contentStyle: { backgroundColor: theme.background },
@@ -51,11 +49,14 @@ export default function RootLayout() {
         >
           <Stack.Screen
             name="index"
-            options={
-              Platform.OS === "android"
-                ? { headerRight: () => <FriendsLink /> }
-                : undefined
-            }
+            options={{
+              // The map is drawn under the header, its box starting below it.
+              headerTransparent: true,
+              headerStyle: { backgroundColor: "transparent" },
+              ...(Platform.OS === "android" && {
+                headerRight: () => <FriendsLink />,
+              }),
+            }}
           >
             {Platform.OS === "ios" && (
               <Stack.Toolbar placement="right">

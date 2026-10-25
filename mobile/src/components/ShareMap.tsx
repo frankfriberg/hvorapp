@@ -14,6 +14,7 @@ import {
 import { PIN_COLOR } from "@shared/pin";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
+import { useHeaderHeight } from "expo-router/react-navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
@@ -31,7 +32,7 @@ import { useSession, useToken } from "@/lib/session";
 import { shareLocation } from "@/lib/share";
 import { SHARING_COLOR } from "@/lib/theme";
 import FloorPoint from "./FloorPoint";
-import FriendPin from "./FriendPin";
+import FriendLabel from "./FriendLabel";
 import RoundButton from "./RoundButton";
 import ShareCard, { type ShareCardHandle } from "./ShareCard";
 import TouchMap from "./TouchMap";
@@ -131,6 +132,8 @@ export default function ShareMap({
   const token = useToken();
   const { session } = useSession();
   const { width } = useWindowDimensions();
+  // The map is drawn under the header; its box starts below it.
+  const headerHeight = useHeaderHeight();
   const [placed, setPlaced] = useState<GridPosition | undefined>();
   // Where the share card's pin stands: the last place, kept while the pin is
   // dragged, so letting go only moves the pin rather than building the card's
@@ -230,18 +233,12 @@ export default function ShareMap({
         ]
       : [],
   );
-  // The picked friend last, so their label is over the other pins.
-  const overlay = [...seated]
-    .sort((a, b) => Number(a.id === picked) - Number(b.id === picked))
-    .map(({ id, name, avatarUrl, seat, percentageX, percentageY }) => (
+  // The picked friend's name over their pin.
+  const overlay = seated
+    .filter(({ id }) => id === picked)
+    .map(({ id, name, seat, percentageX, percentageY }) => (
       <FloorPoint key={id} percentageX={percentageX} percentageY={percentageY}>
-        <FriendPin
-          name={name}
-          avatarUrl={avatarUrl}
-          percentageX={0}
-          percentageY={0}
-          until={id === picked ? time(seat.expiresAt) : undefined}
-        />
+        <FriendLabel name={name} until={time(seat.expiresAt)} />
       </FloorPoint>
     ));
 
@@ -253,6 +250,7 @@ export default function ShareMap({
         overlay={overlay}
         friendPins={seated}
         onTap={(id) => setPicked(id === picked ? null : id)}
+        top={headerHeight}
       />
       {cardAt && (
         // Laid out off-screen so it can be captured without being seen.
@@ -292,9 +290,7 @@ export default function ShareMap({
 }
 
 const styles = StyleSheet.create({
-  // As narrow as the leaning floor allows: its near edge is ~13% wider than
-  // the map, and should stay clear of the screen's edges.
-  container: { flex: 1, paddingHorizontal: 28 },
+  container: { flex: 1 },
   offscreen: { position: "absolute", left: -10000, top: 0 },
   actions: { position: "absolute", flexDirection: "row", gap: 16 },
 });
