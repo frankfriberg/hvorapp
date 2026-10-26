@@ -27,6 +27,23 @@ sharing the link alone; test image sharing in a development build
 (`npx expo run:ios`). The banner's text and colours are `SHARE_BANNER` in
 `src/lib/banner.ts`.
 
+## Friends
+
+Sign-in, the friends list and invite links talk to the web app's API
+(`src/lib/api.ts`, `src/lib/session.tsx`); the session token is kept in the
+keychain with `expo-secure-store`. Screens: `logg-inn` (Apple, Google, then a
+name if the provider gave none), `venner` (requests, friends, invite link,
+sign out, delete account) and `venn/[code]` (an opened invite). Friends'
+shared seats are drawn on the map and refreshed every 30 s while it's open.
+
+- **Local development:** run the web app with `HVOR_DEV_AUTH=1 npm run dev`,
+  then build with `EXPO_PUBLIC_API_URL=http://localhost:9100
+  EXPO_PUBLIC_DEV_AUTH=1 npx expo run:ios`. The sign-in screen then also takes
+  a bare name, no Apple or Google needed.
+- **Google Sign-In** is compiled in only when `GOOGLE_IOS_URL_SCHEME`,
+  `GOOGLE_IOS_CLIENT_ID` and `GOOGLE_WEB_CLIENT_ID` are set at build time
+  (`app.config.ts`); without them the button is hidden.
+
 ## Releasing
 
 EAS builds, signs and submits; nothing is built locally.

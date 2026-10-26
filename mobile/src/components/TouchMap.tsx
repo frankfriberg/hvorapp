@@ -1,6 +1,6 @@
 import salen from "@shared/arenas/salen";
 import { type GridPosition, snapToGrid } from "@shared/grid";
-import { type ComponentRef, useRef, useState } from "react";
+import { type ComponentRef, type ReactNode, useRef, useState } from "react";
 import {
   type GestureResponderEvent,
   StyleSheet,
@@ -18,9 +18,11 @@ type Props = {
   position?: GridPosition;
   /** The placed position on release; `undefined` while the pin is dragged. */
   onPlace?: (position: GridPosition | undefined) => void;
+  /** Drawn on the map under my pin: friends' seats. */
+  overlay?: ReactNode;
 };
 
-export default function TouchMap({ position, onPlace }: Props) {
+export default function TouchMap({ position, onPlace, overlay }: Props) {
   const { width: windowWidth } = useWindowDimensions();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [isMoving, setIsMoving] = useState(false);
@@ -82,6 +84,7 @@ export default function TouchMap({ position, onPlace }: Props) {
       onResponderTerminate={onRelease}
     >
       <ArenaMap arena={salen} style={StyleSheet.absoluteFill} />
+      {overlay}
       {current && (
         <Pin
           percentageX={current.percentageX}
