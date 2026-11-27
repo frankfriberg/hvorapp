@@ -137,6 +137,118 @@ function hallFloor({ shapes }: Arena): Ring {
   return [...side(points), ...side([...points].reverse())];
 }
 
+// How far past a side its far side is looked at, in map units.
+const OUTER_PROBE = 2;
+
+// The floor is found in cells this many map units across.
+const FLOOR_CELL = 8;
+
+/**
+ * The hall's open floor, as rectangles: the ground inside its walls that no
+ * stand stands on, reached from its middle, so the corners round the
+ * stands' outside are left out; each run of it reaching a cell under the
+ * stands, so no gap shows at their foot.
+ */
+function openFloor(
+  hull: Ring,
+  heightAt: (x: number, y: number) => number,
+): [number, number, number, number][] {
+  const xs = hull.map(([x]) => x);
+  const ys = hull.map(([, y]) => y);
+  const [left, top] = [Math.min(...xs), Math.min(...ys)];
+  const columns = Math.ceil((Math.max(...xs) - left) / FLOOR_CELL);
+  const rows = Math.ceil((Math.max(...ys) - top) / FLOOR_CELL);
+  const centre = (column: number, row: number) => [
+    left + (column + 0.5) * FLOOR_CELL,
+    top + (row + 0.5) * FLOOR_CELL,
+  ];
+  // 0 outside the walls, 1 under a stand, 2 open floor.
+  const kind = new Uint8Array(columns * rows);
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const [x, y] = centre(column, row);
+      kind[row * columns + column] = !insideRing(hull, x, y)
+        ? 0
+        : heightAt(x, y) > 0
+          ? 1
+          : 2;
+    }
+  }
+  // From the open cell nearest the middle, every open cell it reaches.
+  const [mx, my] = [
+    xs.reduce((sum, x) => sum + x, 0) / xs.length,
+    ys.reduce((sum, y) => sum + y, 0) / ys.length,
+  ];
+  let seed = -1;
+  let best = Number.POSITIVE_INFINITY;
+  kind.forEach((k, i) => {
+    if (k !== 2) return;
+    const [x, y] = centre(i % columns, Math.floor(i / columns));
+    const distance = Math.hypot(x - mx, y - my);
+    if (distance < best) [best, seed] = [distance, i];
+  });
+  const reached = new Uint8Array(columns * rows);
+  const queue = seed < 0 ? [] : [seed];
+  if (seed >= 0) reached[seed] = 1;
+  while (queue.length) {
+    const i = queue.pop() as number;
+    const [column, row] = [i % columns, Math.floor(i / columns)];
+    for (const [c, r] of [
+      [column - 1, row],
+      [column + 1, row],
+      [column, row - 1],
+      [column, row + 1],
+    ]) {
+      if (c < 0 || r < 0 || c >= columns || r >= rows) continue;
+      const j = r * columns + c;
+      if (kind[j] === 2 && !reached[j]) {
+        reached[j] = 1;
+        queue.push(j);
+      }
+    }
+  }
+  // Each row's runs, a cell further where a stand is next to them.
+  const rects: [number, number, number, number][] = [];
+  const under = (c: number, r: number) =>
+    c >= 0 && r >= 0 && c < columns && r < rows && kind[r * columns + c] === 1;
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      if (!reached[row * columns + column]) continue;
+      let end = column;
+      while (end + 1 < columns && reached[row * columns + end + 1]) end++;
+      const from = under(column - 1, row) ? column - 1 : column;
+      const to = under(end + 1, row) ? end + 2 : end + 1;
+      const up = [...Array(end - column + 1).keys()].some((k) =>
+        under(column + k, row - 1),
+      );
+      const down = [...Array(end - column + 1).keys()].some((k) =>
+        under(column + k, row + 1),
+      );
+      rects.push([
+        left + from * FLOOR_CELL,
+        top + (up ? row - 1 : row) * FLOOR_CELL,
+        left + to * FLOOR_CELL,
+        top + (down ? row + 2 : row + 1) * FLOOR_CELL,
+      ]);
+      column = end;
+    }
+  }
+  return rects;
+}
+
+/** Whether a point is inside a ring (even-odd). */
+function insideRing(ring: Ring, x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /** A level's flat x, y, x, y, … as a ring. */
 function toRing({ ring: flat }: ArenaLevel): Ring {
   const ring: Ring = [];
@@ -193,12 +305,14 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
     base: number,
     top: number,
     topPaint: Paint,
-    sidePaint: Paint,
+    sidePaint:
+      | Paint
+      | ((x1: number, y1: number, x2: number, y2: number) => Paint),
   ) => {
     ring.forEach(([x1, y1], j) => {
       const [x2, y2] = ring[(j + 1) % ring.length];
       quad(
-        sidePaint,
+        typeof sidePaint === "function" ? sidePaint(x1, y1, x2, y2) : sidePaint,
         at(x1, y1, base),
         at(x2, y2, base),
         at(x2, y2, top),
@@ -214,15 +328,12 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
   };
 
   // The hall's floor, flat under it all, so it stands apart from round it.
-  const floor = hallFloor(frame);
-  const flat = floor.map(([x, y]) => new THREE.Vector2(x, y));
-  for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(flat, [])) {
-    for (const k of [a, b, c]) {
-      triangles.floor.push(...at(floor[k][0], floor[k][1], 0));
-    }
+  const { heightAt } = arenaHeights(levels);
+  const hull = hallFloor(frame);
+  for (const [x1, y1, x2, y2] of openFloor(hull, heightAt)) {
+    quad("floor", at(x1, y1, 0), at(x2, y1, 0), at(x2, y2, 0), at(x1, y2, 0));
   }
 
-  const { heightAt } = arenaHeights(levels);
   /** The height under a ring's middle, which it stands on. */
   const groundOf = (ring: Ring) =>
     heightAt(
@@ -242,6 +353,22 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
   // what it is: a step's edge is its front, not a line, and every other
   // step's top is shaded.
   const shaded = stepShades(levels.levels);
+  // A side with no hall floor past it is the stands' outer wall, painted
+  // apart from the steps' fronts so it doesn't read as floor.
+  const outerWall = (
+    side: Paint,
+  ): ((x1: number, y1: number, x2: number, y2: number) => Paint) => {
+    return (x1, y1, x2, y2) => {
+      const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const [nx, ny] = [(y2 - y1) / length, (x1 - x2) / length];
+      const [mx, my] = [(x1 + x2) / 2, (y1 + y2) / 2];
+      const off = OUTER_PROBE;
+      const outside =
+        !insideRing(hull, mx + nx * off, my + ny * off) ||
+        !insideRing(hull, mx - nx * off, my - ny * off);
+      return outside ? "tierSide" : side;
+    };
+  };
   levels.levels.forEach((level, index) => {
     const { part, height } = level;
     const ring = toRing(level);
@@ -251,7 +378,7 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
       0,
       height,
       shaded[index] ? shade : top,
-      side,
+      part === "stair" ? outerWall(side) : side,
     );
   });
 
