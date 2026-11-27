@@ -109,7 +109,7 @@ export const ARENA_DARK_PALETTE: ArenaPalette = {
   row: "#5b7fc0",
   marker: "#5c5c62",
   outline: "#5c5c62",
-  floor: "#3a3a3c",
+  floor: "#323234",
   stageTop: "#4a4a4e",
   rowSide: "#2f3f5c",
   columnTop: "#7a7a80",

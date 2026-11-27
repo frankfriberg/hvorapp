@@ -636,16 +636,22 @@ export default function TouchMap({
         >
           {overlay}
         </FloorContext.Provider>
-        {moved && (
-          <View style={styles.reset}>
-            <RoundButton
-              icon={{ ios: "location.north.line.fill", android: "explore" }}
-              label={t.resetView}
-              onPress={resetView}
-            />
-          </View>
-        )}
       </View>
+      {moved && (
+        // Bottom left, level with the map's buttons on the right.
+        <View
+          style={[
+            styles.reset,
+            { left: windowWidth * 0.1, bottom: windowWidth * 0.1 },
+          ]}
+        >
+          <RoundButton
+            icon={{ ios: "location.north.line.fill", android: "explore" }}
+            label={t.resetView}
+            onPress={resetView}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -660,5 +666,5 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     aspectRatio: salen.width / salen.height,
   },
-  reset: { position: "absolute", left: 0, top: 0 },
+  reset: { position: "absolute" },
 });

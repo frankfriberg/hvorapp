@@ -140,31 +140,100 @@ function hallFloor({ shapes }: Arena): Ring {
 // How far past a side its far side is looked at, in map units.
 const OUTER_PROBE = 2;
 
-// How far under the stands a corner of the floor is tucked, in map units.
-const FLOOR_TUCK = 6;
+// The floor is found in cells this many map units across.
+const FLOOR_CELL = 8;
 
 /**
- * The floor's corners pulled in toward its middle until each is under the
- * stands, so none of it shows past their outer walls; a corner with no stand
- * on the way in stays where it was.
+ * The hall's open floor, as rectangles: the ground inside its walls that no
+ * stand stands on, reached from its middle, so the corners round the
+ * stands' outside are left out; each run of it reaching a cell under the
+ * stands, so no gap shows at their foot.
  */
-function underStands(
-  ring: Ring,
+function openFloor(
+  hull: Ring,
   heightAt: (x: number, y: number) => number,
-): Ring {
-  const cx = ring.reduce((sum, [x]) => sum + x, 0) / ring.length;
-  const cy = ring.reduce((sum, [, y]) => sum + y, 0) / ring.length;
-  return ring.map(([x, y]) => {
-    const length = Math.hypot(cx - x, cy - y);
-    const [dx, dy] = [(cx - x) / length, (cy - y) / length];
-    for (let d = 0; d < length; d += 1) {
-      if (heightAt(x + dx * d, y + dy * d) > 0) {
-        const tucked = Math.min(d + FLOOR_TUCK, length);
-        return [x + dx * tucked, y + dy * tucked];
+): [number, number, number, number][] {
+  const xs = hull.map(([x]) => x);
+  const ys = hull.map(([, y]) => y);
+  const [left, top] = [Math.min(...xs), Math.min(...ys)];
+  const columns = Math.ceil((Math.max(...xs) - left) / FLOOR_CELL);
+  const rows = Math.ceil((Math.max(...ys) - top) / FLOOR_CELL);
+  const centre = (column: number, row: number) => [
+    left + (column + 0.5) * FLOOR_CELL,
+    top + (row + 0.5) * FLOOR_CELL,
+  ];
+  // 0 outside the walls, 1 under a stand, 2 open floor.
+  const kind = new Uint8Array(columns * rows);
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      const [x, y] = centre(column, row);
+      kind[row * columns + column] = !insideRing(hull, x, y)
+        ? 0
+        : heightAt(x, y) > 0
+          ? 1
+          : 2;
+    }
+  }
+  // From the open cell nearest the middle, every open cell it reaches.
+  const [mx, my] = [
+    xs.reduce((sum, x) => sum + x, 0) / xs.length,
+    ys.reduce((sum, y) => sum + y, 0) / ys.length,
+  ];
+  let seed = -1;
+  let best = Number.POSITIVE_INFINITY;
+  kind.forEach((k, i) => {
+    if (k !== 2) return;
+    const [x, y] = centre(i % columns, Math.floor(i / columns));
+    const distance = Math.hypot(x - mx, y - my);
+    if (distance < best) [best, seed] = [distance, i];
+  });
+  const reached = new Uint8Array(columns * rows);
+  const queue = seed < 0 ? [] : [seed];
+  if (seed >= 0) reached[seed] = 1;
+  while (queue.length) {
+    const i = queue.pop() as number;
+    const [column, row] = [i % columns, Math.floor(i / columns)];
+    for (const [c, r] of [
+      [column - 1, row],
+      [column + 1, row],
+      [column, row - 1],
+      [column, row + 1],
+    ]) {
+      if (c < 0 || r < 0 || c >= columns || r >= rows) continue;
+      const j = r * columns + c;
+      if (kind[j] === 2 && !reached[j]) {
+        reached[j] = 1;
+        queue.push(j);
       }
     }
-    return [x, y];
-  });
+  }
+  // Each row's runs, a cell further where a stand is next to them.
+  const rects: [number, number, number, number][] = [];
+  const under = (c: number, r: number) =>
+    c >= 0 && r >= 0 && c < columns && r < rows && kind[r * columns + c] === 1;
+  for (let row = 0; row < rows; row++) {
+    for (let column = 0; column < columns; column++) {
+      if (!reached[row * columns + column]) continue;
+      let end = column;
+      while (end + 1 < columns && reached[row * columns + end + 1]) end++;
+      const from = under(column - 1, row) ? column - 1 : column;
+      const to = under(end + 1, row) ? end + 2 : end + 1;
+      const up = [...Array(end - column + 1).keys()].some((k) =>
+        under(column + k, row - 1),
+      );
+      const down = [...Array(end - column + 1).keys()].some((k) =>
+        under(column + k, row + 1),
+      );
+      rects.push([
+        left + from * FLOOR_CELL,
+        top + (up ? row - 1 : row) * FLOOR_CELL,
+        left + to * FLOOR_CELL,
+        top + (down ? row + 2 : row + 1) * FLOOR_CELL,
+      ]);
+      column = end;
+    }
+  }
+  return rects;
 }
 
 /** Whether a point is inside a ring (even-odd). */
@@ -261,12 +330,8 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
   // The hall's floor, flat under it all, so it stands apart from round it.
   const { heightAt } = arenaHeights(levels);
   const hull = hallFloor(frame);
-  const floor = underStands(hull, heightAt);
-  const flat = floor.map(([x, y]) => new THREE.Vector2(x, y));
-  for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(flat, [])) {
-    for (const k of [a, b, c]) {
-      triangles.floor.push(...at(floor[k][0], floor[k][1], 0));
-    }
+  for (const [x1, y1, x2, y2] of openFloor(hull, heightAt)) {
+    quad("floor", at(x1, y1, 0), at(x2, y1, 0), at(x2, y2, 0), at(x1, y2, 0));
   }
 
   /** The height under a ring's middle, which it stands on. */
