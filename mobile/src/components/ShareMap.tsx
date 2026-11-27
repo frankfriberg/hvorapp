@@ -198,7 +198,7 @@ export default function ShareMap({
 
   async function shareWithFriends() {
     if (!placed) return;
-    if (!token) return router.push("/logg-inn");
+    if (!token) return router.push("/sign-in");
     const hours = await askHours();
     if (!hours) return;
     try {

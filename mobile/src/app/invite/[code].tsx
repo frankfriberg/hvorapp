@@ -23,7 +23,7 @@ function message(result: RequestResult): string {
   }
 }
 
-/** Opens an invite link (hvor://venn/<code>): asks its owner to be friends. */
+/** Opens an invite link (hvor://invite/<code>): asks its owner to be friends. */
 export default function OpenInvite() {
   const router = useRouter();
   const { code } = useLocalSearchParams<{ code: string }>();
@@ -51,7 +51,7 @@ export default function OpenInvite() {
   if (!token || !named) {
     return (
       <Redirect
-        href={{ pathname: "/logg-inn", params: { next: `/venn/${code}` } }}
+        href={{ pathname: "/sign-in", params: { next: `/invite/${code}` } }}
       />
     );
   }
@@ -66,7 +66,7 @@ export default function OpenInvite() {
       {text && (
         <Button
           label={t.toYourFriends}
-          onPress={() => router.replace("/venner")}
+          onPress={() => router.replace("/friends")}
         />
       )}
     </View>

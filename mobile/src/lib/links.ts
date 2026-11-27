@@ -10,5 +10,5 @@ export function locationUrl(arena: string, coordinates: string): string {
 
 /** My invite link; opening it asks me to be the opener's friend. */
 export function inviteUrl(code: string): string {
-  return `${webUrl}/venn/${code}`;
+  return `${webUrl}/invite/${code}`;
 }

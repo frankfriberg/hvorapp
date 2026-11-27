@@ -26,7 +26,7 @@ export default function FriendsScreen() {
     return (
       <View style={styles.screen}>
         <Text style={body}>{t.signInForFriends}</Text>
-        <Button label={t.signIn} onPress={() => router.push("/logg-inn")} />
+        <Button label={t.signIn} onPress={() => router.push("/sign-in")} />
       </View>
     );
   }

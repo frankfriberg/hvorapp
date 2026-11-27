@@ -31,9 +31,9 @@ sharing the link alone; test image sharing in a development build
 
 Sign-in, the friends list and invite links talk to the web app's API
 (`src/lib/api.ts`, `src/lib/session.tsx`); the session token is kept in the
-keychain with `expo-secure-store`. Screens: `logg-inn` (Apple, Google, then a
-name if the provider gave none), `venner` (requests, friends, invite link,
-sign out, delete account) and `venn/[code]` (an opened invite). Friends'
+keychain with `expo-secure-store`. Screens: `sign-in` (Apple, Google, then a
+name if the provider gave none), `friends` (requests, friends, invite link,
+sign out, delete account) and `invite/[code]` (an opened invite). Friends'
 shared seats are drawn on the map and refreshed every 30 s while it's open.
 
 - **Local development:** run the web app with `HVOR_DEV_AUTH=1 npm run dev`,
