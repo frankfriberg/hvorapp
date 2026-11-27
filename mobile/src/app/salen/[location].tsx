@@ -2,6 +2,7 @@ import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import ShareMap from "@/components/ShareMap";
+import { salenFloor } from "@/lib/floor";
 import { t } from "@/lib/i18n";
 import { useTheme } from "@/lib/theme";
 
@@ -26,9 +27,9 @@ export default function LocationScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t.iSitHere }} />
       <ShareMap
         arena="salen"
+        floor={salenFloor}
         position={{
           gridX: points.x,
           gridY: points.y,

@@ -1,71 +1,20 @@
-import {
-  type Arena,
-  type ArenaLevels,
-  type ArenaSegment,
-  pathSegments,
-} from "@shared/arena";
+import type { ArenaLevels } from "@shared/arena";
 
-// How tall the map's parts stand, in arena units, both drawn flat in
-// perspective (`ArenaMap`) and built in 3D (`ArenaScene`).
+// How tall the map's parts stand, in arena units, built in 3D (`ArenaScene`).
 
 // Rows, about 2 points on a phone.
 export const ROW_HEIGHT = 10;
 // The columns (the map's markers), about 9 points on a phone.
 export const COLUMN_HEIGHT = 45;
-// How much each step up to the stage rises (under 1 point on a phone): the
-// stage stands a rise for each step and one more, and each step a rise lower
-// than the one above it, so every step has room to stand on.
-export const STEP_RISE = 3.75;
-// A tier's side, about 1.5 points on a phone; twice that for the long edges
-// of `tall-tiers`.
-export const TIER_RISE = 7.5;
-
-// Tier edges shorter than this, end to end, are the short ones at the ends
-// of the rows.
-const SHORT_TIER = 100;
-
-/**
- * The edges of the tiers the seats stand on, joined end to end into the
- * lines they were drawn as: whether they're `tall-tiers`, and whether short.
- */
-function joinedTierLines(arena: Arena) {
-  const lines: { tall: boolean; segments: ArenaSegment[] }[] = [];
-  for (const { d, part } of arena.shapes) {
-    if (part !== "tiers" && part !== "tall-tiers") continue;
-    for (const segment of pathSegments(d)) {
-      const line = lines.at(-1);
-      const last = line?.segments.at(-1);
-      if (line && last && last[2] === segment[0] && last[3] === segment[1]) {
-        line.segments.push(segment);
-      } else lines.push({ tall: part === "tall-tiers", segments: [segment] });
-    }
-  }
-  return lines.map(({ tall, segments }) => {
-    const length = segments.reduce(
-      (sum, [x1, y1, x2, y2]) => sum + Math.hypot(x2 - x1, y2 - y1),
-      0,
-    );
-    return { tall, short: length < SHORT_TIER, segments };
-  });
-}
-
-/**
- * The edges of the tiers the seats stand on, as drawn flat: each line with
- * how tall its side stands.
- */
-export function tierLines(arena: Arena) {
-  return joinedTierLines(arena).map(({ tall, short, segments }) => ({
-    short,
-    rise: TIER_RISE * (tall && !short ? 2 : 1),
-    segments,
-  }));
-}
-
 /**
  * How high the arena is under each point of the map, in arena units: the
  * top of the highest level there, or the floor's 0.
  */
-export function arenaHeights({ levels }: ArenaLevels) {
+export function arenaHeights({
+  levels,
+}: {
+  levels: Pick<ArenaLevels["levels"][number], "height" | "ring">[];
+}) {
   // Flat, for the UI thread: each level's height, where its ring starts and
   // ends in `points`, and its bounds as left, top, right, bottom.
   const heights: number[] = [];
@@ -87,8 +36,8 @@ export function arenaHeights({ levels }: ArenaLevels) {
   }
   starts.push(points.length);
 
-  /** How high the arena is at a point, in arena units. */
-  function heightAt(x: number, y: number) {
+  /** Which of `levels` a point is on, the first it's in; -1 for none. */
+  function levelAt(x: number, y: number) {
     "worklet";
     // Levels are highest first: the first one the point is in.
     for (let level = 0; level < heights.length; level++) {
@@ -116,9 +65,17 @@ export function arenaHeights({ levels }: ArenaLevels) {
           inside = !inside;
         }
       }
-      if (inside) return heights[level];
+      if (inside) return level;
     }
-    return 0;
+    return -1;
   }
-  return { heightAt };
+  // After levelAt: the worklet plugin makes each a const, not hoisted.
+  /** How high the arena is at a point, in arena units. */
+  function heightAt(x: number, y: number) {
+    "worklet";
+    const level = levelAt(x, y);
+    return level < 0 ? 0 : heights[level];
+  }
+
+  return { heightAt, levelAt };
 }

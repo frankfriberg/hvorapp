@@ -1,7 +1,6 @@
 import { PIN_DOT_VW, PIN_WIDTH_VW } from "@shared/pin";
 
-// The pin's shape, drawn flat (`Pin`, in the shared image) and built in 3D
-// (`pinScene`, on the map), in drawing units.
+// The pin's shape, built in 3D by `pinScene`, in drawing units.
 
 // The upright pin's drawing: a 100 × 128 box with the head's centre at HEAD.
 export const TEARDROP_BOX = { width: 100, height: 128 };

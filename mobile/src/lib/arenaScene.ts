@@ -166,11 +166,17 @@ function stepShades(levels: ArenaLevel[]) {
 }
 
 /**
- * The arena as a group of meshes, one per colour, and how to paint them in
- * a palette; centred on `frame`, the map the pins are placed on, which the
- * levels share an origin with and can run past the edge of.
+ * The arena's triangles, by colour; centred on `frame`, the map the pins
+ * are placed on, which the levels share an origin with and can run past the
+ * edge of. Worked out once, the first time they're asked for: it's a moment's
+ * work on a phone, thousands of rounded seats.
  */
-export function buildArena(levels: ArenaLevels, frame: Arena) {
+export function arenaTriangles(
+  levels: ArenaLevels,
+  frame: Arena,
+): Record<Paint, Float32Array> {
+  const known = worked.get(levels);
+  if (known) return known;
   const triangles = Object.fromEntries(
     PAINTS.map((paint) => [paint, [] as number[]]),
   ) as Record<Paint, number[]>;
@@ -279,13 +285,30 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
     );
   }
 
+  const done = Object.fromEntries(
+    PAINTS.map((paint) => [paint, new Float32Array(triangles[paint])]),
+  ) as Record<Paint, Float32Array>;
+  worked.set(levels, done);
+  return done;
+}
+
+// Each arena's triangles, once worked out.
+const worked = new WeakMap<ArenaLevels, Record<Paint, Float32Array>>();
+
+/**
+ * The arena as a group of meshes, one per colour, and how to paint them in
+ * a palette; as `arenaTriangles` has it.
+ */
+export function buildArena(levels: ArenaLevels, frame: Arena) {
+  const triangles = arenaTriangles(levels, frame);
   const group = new THREE.Group();
   const materials = {} as Record<Paint, THREE.MeshBasicMaterial>;
   for (const paint of PAINTS) {
     const geometry = new THREE.BufferGeometry();
+    // Shared with every other map of it; only its meshes are its own.
     geometry.setAttribute(
       "position",
-      new THREE.Float32BufferAttribute(triangles[paint], 3),
+      new THREE.BufferAttribute(triangles[paint], 3),
     );
     // Flat colours, both sides: what shows is set by depth alone.
     materials[paint] = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });

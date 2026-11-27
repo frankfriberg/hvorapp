@@ -1,3 +1,4 @@
+import { ARENA_NAMES } from "@shared/api";
 import { Image } from "expo-image";
 import {
   DarkTheme,
@@ -47,27 +48,46 @@ export default function RootLayout() {
             contentStyle: { backgroundColor: theme.background },
           }}
         >
-          <Stack.Screen
-            name="index"
-            options={{
-              // The map is drawn under the header, its box starting below it.
-              headerTransparent: true,
-              headerStyle: { backgroundColor: "transparent" },
-              ...(Platform.OS === "android" && {
-                headerRight: () => <FriendsLink />,
-              }),
-            }}
-          >
-            {Platform.OS === "ios" && (
-              <Stack.Toolbar placement="right">
-                <Stack.Toolbar.Button
-                  icon="person.2.fill"
-                  accessibilityLabel={t.friends}
-                  onPress={() => router.push("/friends")}
-                />
-              </Stack.Toolbar>
-            )}
-          </Stack.Screen>
+          {/* The maps: the venue's outside, an arena's inside, a shared seat. */}
+          {/* Titled here, not by the screens, so the header is right from its
+              first frame rather than redrawn as each screen sets it. */}
+          {(
+            [
+              ["index", "Hvor"],
+              ["salen/index", ARENA_NAMES.salen],
+              ["salen/[location]", t.iSitHere],
+            ] as const
+          ).map(([name, title]) => (
+            <Stack.Screen
+              key={name}
+              name={name}
+              options={{
+                title,
+                // The arrow alone: iOS otherwise lays out "< Hvor" and then
+                // shortens it to fit beside the friends button, a flash.
+                headerBackButtonDisplayMode: "minimal",
+                // No swiping back: a swipe from the edge is the map's, to
+                // pan and drag a pin; the back button goes back.
+                gestureEnabled: false,
+                // The map is drawn under the header, its box below it.
+                headerTransparent: true,
+                headerStyle: { backgroundColor: "transparent" },
+                ...(Platform.OS === "android" && {
+                  headerRight: () => <FriendsLink />,
+                }),
+              }}
+            >
+              {Platform.OS === "ios" && (
+                <Stack.Toolbar placement="right">
+                  <Stack.Toolbar.Button
+                    icon="person.2.fill"
+                    accessibilityLabel={t.friends}
+                    onPress={() => router.push("/friends")}
+                  />
+                </Stack.Toolbar>
+              )}
+            </Stack.Screen>
+          ))}
           <Stack.Screen
             name="friends"
             options={{

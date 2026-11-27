@@ -21,6 +21,7 @@ import {
 import { migrate } from "./migrate";
 import { pglite } from "./pglite";
 import {
+  moveSeat,
   mySeat,
   parseSeat,
   parseShareHours,
@@ -155,9 +156,33 @@ describe("shared seats", () => {
     expect(await mySeat(db, ada.id, noon)).toBeNull();
   });
 
+  it("move, live, keeping when they end, only while shared", async () => {
+    const live = { ...seat, arena: "brunstad", live: true } as const;
+    expect(await moveSeat(db, ada.id, live, noon)).toBeNull();
+    const { expiresAt } = await shareSeat(db, ada.id, live, 2, noon);
+    const later = new Date("2026-10-17T13:00:00Z");
+    expect(await moveSeat(db, ada.id, { ...live, gridX: 12 }, later)).toEqual({
+      expiresAt,
+    });
+    expect(await mySeat(db, ada.id, later)).toMatchObject({
+      arena: "brunstad",
+      gridX: 12,
+      live: true,
+    });
+    const after = new Date("2026-10-17T14:00:00Z");
+    expect(await moveSeat(db, ada.id, live, after)).toBeNull();
+  });
+
   it("must be a known arena and on the grid", () => {
     expect(parseSeat(seat)).toEqual(seat);
     expect(parseSeat({ ...seat, arena: "elsewhere" })).toBeNull();
+    expect(parseSeat({ ...seat, arena: "brunstad", live: true })).toEqual({
+      ...seat,
+      arena: "brunstad",
+      live: true,
+    });
+    expect(parseSeat({ ...seat, live: false })).toEqual(seat);
+    expect(parseSeat({ ...seat, live: "yes" })).toBeNull();
     expect(parseSeat({ ...seat, gridX: -1 })).toBeNull();
     expect(parseSeat({ ...seat, gridY: 1.5 })).toEqual({ ...seat, gridY: 1.5 });
     expect(parseSeat({ ...seat, gridY: "1" })).toBeNull();

@@ -52,3 +52,6 @@ next-env.d.ts
 
 # scripts/remote-dev.sh
 /.remote-dev/
+
+# downloads for npm run venue:build
+/.cache

@@ -10,7 +10,7 @@ Open Graph preview; the app also opens `hvor://salen/X<col>Y<row>`.
 `metro.config.js` lets Metro read the repo root, so both apps import one copy:
 
 - `@shared/*` → `../shared/` — grid math, `GridPosition`, pin geometry, and the
-  arena geometry `ArenaMap` draws with `react-native-svg`.
+  arena geometry the 3D map is built from.
 - `@public/*` → `../public/` — the pin SVG.
 
 `shared/` must stay free of Next.js, React Native and DOM imports. Pin placement mirrors
@@ -19,13 +19,25 @@ lifts); change one and change the other.
 
 ## Sharing
 
-The share button sends an image with the link as its caption, so a chat shows
-the seat without waiting for a link preview. `ShareCard` (map, pin, banner) is
-laid out off-screen and captured with `react-native-view-shot`, then sent with
-`react-native-share`. Where either isn't linked — Expo Go — it falls back to
-sharing the link alone; test image sharing in a development build
-(`npx expo run:ios`). The banner's text and colours are `SHARE_BANNER` in
-`src/lib/banner.ts`.
+The share button sends a picture and nothing else: no link, the web app
+lags behind the app. It's the 3D map as it's first seen (the floor's `start`),
+pins and all, whatever it's turned to on screen, from `GLView.takeSnapshotAsync`
+(`snapshot` in `ArenaScene`), on `ShareCard` over the banner, the ad space
+(`SHARE_BANNER` in `src/lib/banner.ts`), captured with `react-native-view-shot`
+and sent with `react-native-share`, which Expo Go lacks; test sharing in a
+development build.
+
+## Maps
+
+`TouchMap` (pin, gestures) and `ArenaScene` (three.js) draw any `Floor`
+(`src/lib/floor.ts`): `salenFloor`, with its stands and seats, or
+`venueFloor(venue)`, the outside, whose arena buildings open the arena. The
+home screen is the venue; `/salen` is inside.
+
+Outside, my location can be shared live (`src/lib/live.ts`, `expo-location`):
+only while the app is open, never in the background, and only on the venue's
+map. `expo-location` is native: a dev build made before it was added has to be
+rebuilt.
 
 ## Friends
 

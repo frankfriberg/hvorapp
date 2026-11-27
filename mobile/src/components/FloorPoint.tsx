@@ -4,12 +4,13 @@ import Animated, {
   type SharedValue,
   useAnimatedStyle,
 } from "react-native-reanimated";
-import { standHeight, toScreen } from "@/lib/tilt";
+import type { Floor } from "@/lib/floor";
+import { toScreen } from "@/lib/tilt";
 
 /**
  * The turning floor a `FloorPoint` stands on: its size and its turn, how far
- * it's zoomed and moved (neither without them), and whether it has the
- * stands built on it, to stand on top of.
+ * it's zoomed and moved (neither without them), and what floor it is, to
+ * stand on top of what's built on it (salen's flat floor without it).
  */
 export const FloorContext = createContext<{
   width: number;
@@ -17,7 +18,7 @@ export const FloorContext = createContext<{
   turn: SharedValue<number>;
   zoom?: SharedValue<number>;
   pan?: SharedValue<{ x: number; y: number }>;
-  stands?: boolean;
+  floor?: Pick<Floor, "aspect" | "heightAt" | "pinScale">;
 } | null>(null);
 
 type Props = {
@@ -48,7 +49,8 @@ export default function FloorPoint({
       },
       x,
       y,
-      floor.stands ? standHeight(x, y) : 0,
+      floor.floor ? floor.floor.heightAt(x, y) : 0,
+      floor.floor?.aspect,
     );
     return {
       transform: [

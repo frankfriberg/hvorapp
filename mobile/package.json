@@ -14,6 +14,7 @@
     "expo-image-manipulator": "~58.0.15",
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.13",
+    "expo-location": "~58.0.19",
     "expo-router": "~58.0.23",
     "expo-secure-store": "~58.0.2",
     "expo-status-bar": "~58.0.3",
@@ -39,7 +40,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint"
   },
   "private": true
 }

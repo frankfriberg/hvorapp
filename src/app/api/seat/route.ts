@@ -1,5 +1,6 @@
 import { error, json, readJson, withUser } from "@/server/http";
 import {
+  moveSeat,
   parseSeat,
   parseShareHours,
   shareSeat,
@@ -15,6 +16,17 @@ export function PUT(request: Request) {
     const hours = parseShareHours(body);
     if (!hours) return error(400, "Not a share length");
     return json({ ...seat, ...(await shareSeat(db, user.id, seat, hours)) });
+  });
+}
+
+/** Moves my shared seat, as a live location does: a `MoveSeatRequest`. */
+export function PATCH(request: Request) {
+  return withUser(request, async ({ db, user }) => {
+    const seat = parseSeat(await readJson(request));
+    if (!seat) return error(400, "Not a seat");
+    const moved = await moveSeat(db, user.id, seat);
+    if (!moved) return error(404, "No seat shared");
+    return json({ ...seat, ...moved });
   });
 }
 
