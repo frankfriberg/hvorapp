@@ -19,7 +19,7 @@ const friendsIcon = require("../../assets/users-dark.svg");
 function FriendsLink() {
   const theme = useTheme();
   return (
-    <Link href="/venner" asChild>
+    <Link href="/friends" asChild>
       <Pressable accessibilityLabel={t.friends} hitSlop={12}>
         <Image
           source={friendsIcon}
@@ -63,13 +63,13 @@ export default function RootLayout() {
                 <Stack.Toolbar.Button
                   icon="person.2.fill"
                   accessibilityLabel={t.friends}
-                  onPress={() => router.push("/venner")}
+                  onPress={() => router.push("/friends")}
                 />
               </Stack.Toolbar>
             )}
           </Stack.Screen>
           <Stack.Screen
-            name="venner"
+            name="friends"
             options={{
               title: t.friends,
               headerLargeTitle: true,
@@ -78,10 +78,10 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
-            name="logg-inn"
+            name="sign-in"
             options={{ title: t.signIn, presentation: "modal" }}
           />
-          <Stack.Screen name="venn/[code]" options={{ title: t.invitation }} />
+          <Stack.Screen name="invite/[code]" options={{ title: t.invitation }} />
         </Stack>
       </ThemeProvider>
     </SessionProvider>

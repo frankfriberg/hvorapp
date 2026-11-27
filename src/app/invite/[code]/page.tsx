@@ -41,7 +41,7 @@ export default async function InvitePage({ params }: Props) {
       <h1 className="text-2xl font-bold">{owner.name} vil bli venn med deg</h1>
       <p>Åpne invitasjonen i Hvor-appen for å se hvor vennene dine sitter.</p>
       <Button asChild size="lg">
-        <a href={`hvor://venn/${encodeURIComponent(code)}`}>Åpne i appen</a>
+        <a href={`hvor://invite/${encodeURIComponent(code)}`}>Åpne i appen</a>
       </Button>
     </div>
   );

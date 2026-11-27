@@ -136,9 +136,9 @@ run it on an in-memory PGlite (`src/server/friends.test.ts`).
   token; `server/identity.ts` verifies it against the provider's keys and
   `/api/auth/*` returns a session token (stored as its SHA-256). Requests carry
   `Authorization: Bearer <token>`.
-- **Friends:** everyone has an invite link, `https://hvor.app/venn/<code>`.
+- **Friends:** everyone has an invite link, `https://hvor.app/invite/<code>`.
   Opening it sends its owner a request to accept; if they had already asked
-  you, it makes you friends. `/venn/[code]` is the page a browser lands on.
+  you, it makes you friends. `/invite/[code]` is the page a browser lands on.
 - **Shares:** one row per person and kind in `shares`; a seat is visible to
   friends for as long as its sharer picks from `SEAT_SHARE_HOURS` in
   `shared/api.ts` (1, 2 or 4 hours; 1 by default). Hotel rooms are meant to
