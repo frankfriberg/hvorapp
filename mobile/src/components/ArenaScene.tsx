@@ -72,8 +72,9 @@ export default memo(function ArenaScene({
 }: Props) {
   const theme = useTheme();
   const palette = theme.arena;
-  const floor = useRef(palette.floor);
-  floor.current = palette.floor;
+  // The ground round the hall, apart from its floor.
+  const background = useRef(theme.background);
+  background.current = theme.background;
   const shadowOpacity = useRef(theme.pinShadowOpacity);
   shadowOpacity.current = theme.pinShadowOpacity;
   const model = useMemo(() => buildArena(levels, arena), [arena, levels]);
@@ -298,7 +299,7 @@ export default memo(function ArenaScene({
       scene.updateMatrixWorld();
       camera.updateMatrixWorld();
       for (const { model: pin } of built.current.values()) pin.aim(camera);
-      renderer.setClearColor(floor.current);
+      renderer.setClearColor(background.current);
       renderer.render(scene, camera);
       gl.endFrameEXP();
     };

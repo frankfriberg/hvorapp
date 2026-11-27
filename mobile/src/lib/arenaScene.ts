@@ -1,4 +1,10 @@
-import type { ArenaLevel, ArenaLevels, ArenaPalette } from "@shared/arena";
+import {
+  type Arena,
+  type ArenaLevel,
+  type ArenaLevels,
+  type ArenaPalette,
+  pathSegments,
+} from "@shared/arena";
 import * as THREE from "three";
 import { arenaHeights, COLUMN_HEIGHT, ROW_HEIGHT } from "@/lib/arena";
 
@@ -96,6 +102,41 @@ const LEVEL_PAINTS: Record<
   deck: ["deck", "deckSide", "deck"],
 };
 
+/**
+ * The hall's floor: round everything its walls on the map are drawn with,
+ * its outline shapes; the hall has no wall that turns in.
+ */
+function hallFloor({ shapes }: Arena): Ring {
+  const points = shapes
+    .filter(({ kind }) => kind === "outline")
+    .flatMap(({ d }) =>
+      pathSegments(d).flatMap(
+        ([x1, y1, x2, y2]): Ring => [
+          [x1, y1],
+          [x2, y2],
+        ],
+      ),
+    )
+    .sort(([ax, ay], [bx, by]) => ax - bx || ay - by);
+  // Andrew's monotone chain: the lower side, then the upper.
+  const cross = ([ox, oy]: number[], [ax, ay]: number[], [bx, by]: number[]) =>
+    (ax - ox) * (by - oy) - (ay - oy) * (bx - ox);
+  const side = (from: Ring) => {
+    const out: Ring = [];
+    for (const point of from) {
+      while (
+        out.length >= 2 &&
+        cross(out[out.length - 2], out[out.length - 1], point) <= 0
+      )
+        out.pop();
+      out.push(point);
+    }
+    out.pop();
+    return out;
+  };
+  return [...side(points), ...side([...points].reverse())];
+}
+
 /** A level's flat x, y, x, y, … as a ring. */
 function toRing({ ring: flat }: ArenaLevel): Ring {
   const ring: Ring = [];
@@ -129,10 +170,7 @@ function stepShades(levels: ArenaLevel[]) {
  * a palette; centred on `frame`, the map the pins are placed on, which the
  * levels share an origin with and can run past the edge of.
  */
-export function buildArena(
-  levels: ArenaLevels,
-  frame: { width: number; height: number },
-) {
+export function buildArena(levels: ArenaLevels, frame: Arena) {
   const triangles = Object.fromEntries(
     PAINTS.map((paint) => [paint, [] as number[]]),
   ) as Record<Paint, number[]>;
@@ -174,6 +212,15 @@ export function buildArena(
       }
     }
   };
+
+  // The hall's floor, flat under it all, so it stands apart from round it.
+  const floor = hallFloor(frame);
+  const flat = floor.map(([x, y]) => new THREE.Vector2(x, y));
+  for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(flat, [])) {
+    for (const k of [a, b, c]) {
+      triangles.floor.push(...at(floor[k][0], floor[k][1], 0));
+    }
+  }
 
   const { heightAt } = arenaHeights(levels);
   /** The height under a ring's middle, which it stands on. */

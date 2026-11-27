@@ -202,6 +202,8 @@ export default function TouchMap({
     pitch.value += pitchSpin * dt;
   }, false);
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // What a dragged pin was last over, to tick as it crosses seats and steps.
+  const over = useRef<{ seat: string | null; height: number } | null>(null);
   // The touch until it's held long enough to pick the pin up: where it began,
   // where the finger is now, and the timer that picks the pin up.
   const press = useRef<{
@@ -330,6 +332,8 @@ export default function TouchMap({
     holding.current = true;
     clearTimeout(settle.current);
     const next = positionAt(pageX, pageY);
+    over.current = null;
+    feelUnder(next);
     // From where it stands now; the first time, from where it appears.
     const from = current
       ? pinOnScreen(pinX.value, pinY.value)
@@ -407,7 +411,25 @@ export default function TouchMap({
       }
       return;
     }
-    moveTo(positionAt(pageX, pageY));
+    const next = positionAt(pageX, pageY);
+    feelUnder(next);
+    moveTo(next);
+  }
+
+  /** A tick as a dragged pin comes onto another seat, a bump up or down a step. */
+  function feelUnder(at: GridPosition) {
+    const seated = onSeat(at);
+    const seat =
+      seated === at ? null : `${seated.percentageX},${seated.percentageY}`;
+    const height = standHeight(at.percentageX, at.percentageY);
+    const was = over.current;
+    over.current = { seat, height };
+    if (!was) return;
+    if (Math.abs(height - was.height) > 1e-6) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (seat && seat !== was.seat) {
+      Haptics.selectionAsync();
+    }
   }
 
   /**
@@ -462,16 +484,16 @@ export default function TouchMap({
   }
 
   /**
-   * A slide that keeps some of the map on screen: its middle no further off
-   * than the edge of the map, as turned, is from it.
+   * A slide that keeps the map from leaving the screen: its edge no further
+   * in than the screen's, nor the map moved at all while it fits on screen.
    */
   function clampPan(x: number, y: number, seen: FloorView) {
     const half = (fit(seen.turn) * seen.zoom) / 2;
     const aspect = salen.width / salen.height;
     const rad = (seen.turn * Math.PI) / 180;
     const [cos, sin] = [Math.abs(Math.cos(rad)), Math.abs(Math.sin(rad))];
-    const across = half * (aspect * cos + sin);
-    const along = half * (aspect * sin + cos);
+    const across = Math.max(half * (aspect * cos + sin) - aspect / 2, 0);
+    const along = Math.max(half * (aspect * sin + cos) - 0.5, 0);
     return {
       x: Math.min(Math.max(x, -across), across),
       y: Math.min(Math.max(y, -along), along),
