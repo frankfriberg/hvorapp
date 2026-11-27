@@ -137,6 +137,22 @@ function hallFloor({ shapes }: Arena): Ring {
   return [...side(points), ...side([...points].reverse())];
 }
 
+// How far past a side its far side is looked at, in map units.
+const OUTER_PROBE = 2;
+
+/** Whether a point is inside a ring (even-odd). */
+function insideRing(ring: Ring, x: number, y: number) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 /** A level's flat x, y, x, y, … as a ring. */
 function toRing({ ring: flat }: ArenaLevel): Ring {
   const ring: Ring = [];
@@ -193,12 +209,14 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
     base: number,
     top: number,
     topPaint: Paint,
-    sidePaint: Paint,
+    sidePaint:
+      | Paint
+      | ((x1: number, y1: number, x2: number, y2: number) => Paint),
   ) => {
     ring.forEach(([x1, y1], j) => {
       const [x2, y2] = ring[(j + 1) % ring.length];
       quad(
-        sidePaint,
+        typeof sidePaint === "function" ? sidePaint(x1, y1, x2, y2) : sidePaint,
         at(x1, y1, base),
         at(x2, y2, base),
         at(x2, y2, top),
@@ -242,6 +260,22 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
   // what it is: a step's edge is its front, not a line, and every other
   // step's top is shaded.
   const shaded = stepShades(levels.levels);
+  // A side with no hall floor past it is the stands' outer wall, painted
+  // apart from the steps' fronts so it doesn't read as floor.
+  const outerWall = (
+    side: Paint,
+  ): ((x1: number, y1: number, x2: number, y2: number) => Paint) => {
+    return (x1, y1, x2, y2) => {
+      const length = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const [nx, ny] = [(y2 - y1) / length, (x1 - x2) / length];
+      const [mx, my] = [(x1 + x2) / 2, (y1 + y2) / 2];
+      const off = OUTER_PROBE;
+      const outside =
+        !insideRing(floor, mx + nx * off, my + ny * off) ||
+        !insideRing(floor, mx - nx * off, my - ny * off);
+      return outside ? "tierSide" : side;
+    };
+  };
   levels.levels.forEach((level, index) => {
     const { part, height } = level;
     const ring = toRing(level);
@@ -251,7 +285,7 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
       0,
       height,
       shaded[index] ? shade : top,
-      side,
+      part === "stair" ? outerWall(side) : side,
     );
   });
 
