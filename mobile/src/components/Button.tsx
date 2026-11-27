@@ -1,14 +1,20 @@
+import { PIN_COLOR } from "@shared/pin";
+import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
 import { Pressable, StyleSheet, Text } from "react-native";
+import { useTheme } from "@/lib/theme";
+
+const glass = isGlassEffectAPIAvailable();
 
 type Props = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  /** `secondary` is outlined, for the lesser of two choices. */
+  /** `primary` is tinted glass; the others are clear glass. */
   variant?: "primary" | "secondary" | "danger";
   size?: "large" | "small";
 };
 
+/** A capsule of Liquid Glass, as iOS draws its buttons. */
 export default function Button({
   label,
   onPress,
@@ -16,47 +22,52 @@ export default function Button({
   variant = "primary",
   size = "large",
 }: Props) {
+  const theme = useTheme();
+  const tint = variant === "primary" ? PIN_COLOR : undefined;
+  const labelColor = {
+    primary: "#fff",
+    secondary: theme.text,
+    danger: theme.danger,
+  };
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [
-        styles.button,
-        styles[size],
-        styles[variant],
-        (pressed || disabled) && styles.dimmed,
+        disabled && styles.dimmed,
+        !glass && pressed && styles.dimmed,
       ]}
     >
-      <Text
+      <GlassView
+        isInteractive={!disabled}
+        tintColor={tint}
         style={[
-          styles.label,
-          styles[`${size}Label`],
-          styles[`${variant}Label`],
+          styles.button,
+          styles[size],
+          !glass && { backgroundColor: tint ?? theme.buttonFill },
         ]}
       >
-        {label}
-      </Text>
+        <Text
+          style={[
+            styles.label,
+            styles[`${size}Label`],
+            { color: labelColor[variant] },
+          ]}
+        >
+          {label}
+        </Text>
+      </GlassView>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  large: { height: 50, paddingHorizontal: 20 },
+  button: { alignItems: "center", justifyContent: "center" },
+  large: { height: 52, paddingHorizontal: 22, borderRadius: 26 },
   small: { height: 34, paddingHorizontal: 14, borderRadius: 17 },
-  primary: { backgroundColor: "#18181b" },
-  secondary: { borderWidth: 1, borderColor: "#d4d4d8" },
-  danger: { borderWidth: 1, borderColor: "#fca5a5" },
   dimmed: { opacity: 0.5 },
   label: { fontWeight: "600" },
   largeLabel: { fontSize: 17 },
   smallLabel: { fontSize: 15 },
-  primaryLabel: { color: "#fff" },
-  secondaryLabel: { color: "#18181b" },
-  dangerLabel: { color: "#dc2626" },
 });

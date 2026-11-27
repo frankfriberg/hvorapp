@@ -1,16 +1,34 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { User } from "@shared/api";
+import type { Person, User } from "@shared/api";
 import type { Db } from "./db";
 
 export type Provider = "apple" | "google" | "dev";
 
 export type { User };
 
-type UserRow = { id: string; name: string; invite_code: string };
+/** A person's columns, for `toPerson`: unqualified, so also for RETURNING. */
+export const PERSON_COLUMNS =
+  "id, name, avatar IS NOT NULL AS has_avatar, avatar_version";
+const USER_COLUMNS = `${PERSON_COLUMNS}, invite_code`;
 
-const toUser = (row: UserRow): User => ({
+export type PersonRow = {
+  id: string;
+  name: string;
+  has_avatar: boolean;
+  avatar_version: number;
+};
+type UserRow = PersonRow & { invite_code: string };
+
+export const toPerson = (row: PersonRow): Person => ({
   id: row.id,
   name: row.name,
+  avatarUrl: row.has_avatar
+    ? `/api/avatars/${row.id}?v=${row.avatar_version}`
+    : null,
+});
+
+const toUser = (row: UserRow): User => ({
+  ...toPerson(row),
   inviteCode: row.invite_code,
 });
 
@@ -43,7 +61,7 @@ export async function signIn(
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (provider, provider_sub) DO UPDATE
        SET name = CASE WHEN users.name = '' THEN EXCLUDED.name ELSE users.name END
-     RETURNING id, name, invite_code`,
+     RETURNING ${USER_COLUMNS}`,
     [provider, providerSub, name?.trim() ?? "", inviteCode()],
   );
   return toUser(row);
@@ -64,7 +82,7 @@ export async function userForToken(
   token: string,
 ): Promise<User | null> {
   const [row] = await db.query<UserRow>(
-    `SELECT u.id, u.name, u.invite_code FROM sessions s
+    `SELECT ${USER_COLUMNS} FROM sessions s
      JOIN users u ON u.id = s.user_id WHERE s.token_hash = $1`,
     [hashToken(token)],
   );
@@ -85,7 +103,7 @@ export async function rename(
   name: string,
 ): Promise<User> {
   const [row] = await db.query<UserRow>(
-    "UPDATE users SET name = $2 WHERE id = $1 RETURNING id, name, invite_code",
+    `UPDATE users SET name = $2 WHERE id = $1 RETURNING ${USER_COLUMNS}`,
     [userId, name.trim().slice(0, MAX_NAME_LENGTH)],
   );
   return toUser(row);
@@ -101,8 +119,50 @@ export async function userByInviteCode(
   code: string,
 ): Promise<User | null> {
   const [row] = await db.query<UserRow>(
-    "SELECT id, name, invite_code FROM users WHERE invite_code = $1",
+    `SELECT ${USER_COLUMNS} FROM users WHERE invite_code = $1`,
     [code],
   );
   return row ? toUser(row) : null;
+}
+
+export type Avatar = {
+  bytes: Uint8Array<ArrayBuffer>;
+  type: "image/jpeg" | "image/png";
+};
+
+/** What kind of image `bytes` hold, by their first bytes; null for neither. */
+export function avatarType(bytes: Uint8Array): Avatar["type"] | null {
+  const starts = (...magic: number[]) =>
+    magic.every((byte, i) => bytes[i] === byte);
+  if (starts(0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (starts(0x89, 0x50, 0x4e, 0x47)) return "image/png";
+  return null;
+}
+
+/** Sets my profile photo, or removes it with null; a new photo, a new URL. */
+export async function setAvatar(
+  db: Db,
+  userId: string,
+  avatar: Avatar | null,
+): Promise<User> {
+  const [row] = await db.query<UserRow>(
+    `UPDATE users SET avatar = $2, avatar_type = $3,
+       avatar_version = avatar_version + 1
+     WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+    [userId, avatar?.bytes ?? null, avatar?.type ?? null],
+  );
+  return toUser(row);
+}
+
+export async function getAvatar(
+  db: Db,
+  userId: string,
+): Promise<Avatar | null> {
+  const [row] = await db.query<{
+    avatar: Uint8Array | null;
+    avatar_type: Avatar["type"] | null;
+  }>("SELECT avatar, avatar_type FROM users WHERE id = $1", [userId]);
+  return row?.avatar && row.avatar_type
+    ? { bytes: new Uint8Array(row.avatar), type: row.avatar_type }
+    : null;
 }

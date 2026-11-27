@@ -8,8 +8,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { sub, name } = await verifyGoogleToken(body.idToken);
-    return startSession("google", sub, name);
+    const { sub, name, picture } = await verifyGoogleToken(body.idToken);
+    return startSession("google", sub, name, picture);
   } catch {
     return error(401, "Invalid Google token");
   }

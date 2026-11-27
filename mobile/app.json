@@ -1,18 +1,23 @@
 {
   "expo": {
     "name": "Hvor",
-    "slug": "hvor",
+    "slug": "hvorapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.hvor",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
-      }
+      },
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Hvor bruker bildebiblioteket ditt når du velger profilbilde eller deler plassen din som bilde.",
+        "NSPhotoLibraryAddUsageDescription": "Hvor lagrer et bilde av plassen din i bildebiblioteket når du ber om det."
+      },
+      "appleTeamId": "6855EJ9AC5"
     },
     "android": {
       "adaptiveIcon": {
@@ -28,21 +33,33 @@
       "expo-router",
       "expo-image",
       "expo-secure-store",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Hvor bruker bildebiblioteket ditt når du velger profilbilde eller deler plassen din som bilde.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ],
     "scheme": "hvor",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "webUrl": "https://hvor.app"
+      "webUrl": "https://hvor.app",
+      "eas": {
+        "projectId": "80efe6f8-da6b-4602-8654-eed76358ce49"
+      }
     },
     "runtimeVersion": {
       "policy": "fingerprint"
     },
-    "platforms": [
-      "ios",
-      "android"
-    ]
+    "platforms": ["ios", "android"],
+    "owner": "skvid-studios",
+    "updates": {
+      "url": "https://u.expo.dev/80efe6f8-da6b-4602-8654-eed76358ce49"
+    }
   }
 }

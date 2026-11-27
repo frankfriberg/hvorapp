@@ -2,17 +2,22 @@ import { gridToPercentage, parseGridCoordinates } from "@shared/grid";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import ShareMap from "@/components/ShareMap";
+import { t } from "@/lib/i18n";
+import { useTheme } from "@/lib/theme";
 
 export default function LocationScreen() {
   const { location } = useLocalSearchParams<{ location: string }>();
   const points = parseGridCoordinates(location ?? "");
+  const theme = useTheme();
 
   if (!points) {
     return (
       <View style={styles.invalid}>
         <Stack.Screen options={{ title: "Hvor" }} />
-        <Text style={styles.heading}>Ugyldig plassering</Text>
-        <Text>Denne lenken peker ikke til en gyldig plassering.</Text>
+        <Text style={[styles.heading, { color: theme.text }]}>
+          {t.invalidLocation}
+        </Text>
+        <Text style={{ color: theme.text }}>{t.invalidLocationBody}</Text>
       </View>
     );
   }
@@ -21,7 +26,7 @@ export default function LocationScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Jeg sitter her" }} />
+      <Stack.Screen options={{ title: t.iSitHere }} />
       <ShareMap
         arena="salen"
         position={{

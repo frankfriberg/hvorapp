@@ -12,9 +12,28 @@ export type Seat = {
   gridY: number;
 };
 
-export type User = { id: string; name: string; inviteCode: string };
+/** How long a seat can be shared with friends, in hours; the first is the default. */
+export const SEAT_SHARE_HOURS = [1, 2, 4] as const;
 
-export type Person = { id: string; name: string };
+export type SeatShareHours = (typeof SEAT_SHARE_HOURS)[number];
+
+/** PUT /api/seat */
+export type ShareSeatRequest = Seat & { hours?: SeatShareHours };
+
+export type Person = {
+  id: string;
+  name: string;
+  /**
+   * Their profile photo, as a path under the web app
+   * (`/api/avatars/<id>?v=<n>`), or null without one.
+   */
+  avatarUrl: string | null;
+};
+
+export type User = Person & { inviteCode: string };
+
+/** PUT /api/me/avatar: a JPEG or PNG body of at most this many bytes. */
+export const AVATAR_MAX_BYTES = 100_000;
 
 export type Friend = Person & {
   /** Their seat, while they share one. */

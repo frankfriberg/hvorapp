@@ -5,6 +5,7 @@ import {
   getCellSize,
   gridToPercentage,
   parseGridCoordinates,
+  percentageToGrid,
   rows,
   snapToGrid,
 } from "./grid";
@@ -20,6 +21,11 @@ describe("parseGridCoordinates", () => {
   it("parses a well-formed location", () => {
     expect(parseGridCoordinates("X16Y30")).toEqual({ x: 16, y: 30 });
     expect(parseGridCoordinates("X0Y0")).toEqual({ x: 0, y: 0 });
+  });
+
+  it("parses decimal coordinates", () => {
+    expect(parseGridCoordinates("X16.4Y30.25")).toEqual({ x: 16.4, y: 30.25 });
+    expect(formatGridCoordinates(16.4, 30)).toBe("X16.4Y30");
   });
 
   it("extracts coordinates embedded in a longer string", () => {
@@ -43,6 +49,25 @@ describe("parseGridCoordinates", () => {
         y,
       });
     }
+  });
+});
+
+describe("percentageToGrid", () => {
+  it("places a point to a tenth of a cell", () => {
+    expect(percentageToGrid(50, 50)).toEqual({ gridX: 24, gridY: 45 });
+    // 34.17% of 48 columns is 16.4016; 33.61% of 90 rows is 30.249.
+    expect(percentageToGrid(34.17, 33.61)).toEqual({
+      gridX: 16.4,
+      gridY: 30.2,
+    });
+  });
+
+  it("round-trips through a link", () => {
+    const { gridX, gridY } = percentageToGrid(12.345, 67.89);
+    expect(parseGridCoordinates(formatGridCoordinates(gridX, gridY))).toEqual({
+      x: gridX,
+      y: gridY,
+    });
   });
 });
 

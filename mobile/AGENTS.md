@@ -40,6 +40,9 @@ shared seats are drawn on the map and refreshed every 30 s while it's open.
   then build with `EXPO_PUBLIC_API_URL=http://localhost:9100
   EXPO_PUBLIC_DEV_AUTH=1 npx expo run:ios`. The sign-in screen then also takes
   a bare name, no Apple or Google needed.
+- **On a phone (rc or any dev build):** `scripts/remote-dev.sh start|stop|status|logs`
+  runs both over Tailscale HTTPS with dev sign-in; in the dev launcher, enter
+  the `metro:` URL it prints (the launcher can't discover it off the LAN).
 - **Google Sign-In** is compiled in only when `GOOGLE_IOS_URL_SCHEME`,
   `GOOGLE_IOS_CLIENT_ID` and `GOOGLE_WEB_CLIENT_ID` are set at build time
   (`app.config.ts`); without them the button is hidden.

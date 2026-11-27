@@ -37,6 +37,8 @@ type SessionContext = {
   signInWithGoogle(): Promise<boolean>;
   signInDev(name: string): Promise<boolean>;
   rename(name: string): Promise<void>;
+  /** Sets my profile photo, a JPEG; null removes it. */
+  setAvatar(photo: Blob | null): Promise<void>;
   signOut(): Promise<void>;
   deleteAccount(): Promise<void>;
 };
@@ -158,6 +160,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const { user } = await api<{ user: User }>("/me", {
           method: "PATCH",
           body: { name },
+          token,
+        });
+        if (token) await keep(token, user);
+      },
+      setAvatar: async (photo) => {
+        const { user } = await api<{ user: User }>("/me/avatar", {
+          method: photo ? "PUT" : "DELETE",
+          body: photo ?? undefined,
           token,
         });
         if (token) await keep(token, user);

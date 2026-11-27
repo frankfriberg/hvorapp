@@ -1,35 +1,65 @@
-import { Image, type ImageSource } from "expo-image";
-import { Pressable, StyleSheet } from "react-native";
+import { GlassView, isGlassEffectAPIAvailable } from "expo-glass-effect";
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import { type ColorValue, Pressable, StyleSheet } from "react-native";
+import { useTheme } from "@/lib/theme";
+
+const glass = isGlassEffectAPIAvailable();
 
 type Props = {
-  icon: ImageSource | number;
+  icon: SymbolViewProps["name"];
   label: string;
   onPress: () => void;
+  /** Tints the glass, for the main action. */
+  tint?: ColorValue;
 };
 
-/** The map's floating action: a dark disc with a white icon. */
-export default function RoundButton({ icon, label, onPress }: Props) {
+/** The map's floating action: a disc of Liquid Glass with a symbol. */
+export default function RoundButton({ icon, label, onPress, tint }: Props) {
+  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      style={({ pressed }) => !glass && pressed && styles.pressed}
     >
-      <Image source={icon} style={styles.icon} />
+      <GlassView
+        isInteractive
+        tintColor={tint}
+        style={[
+          styles.button,
+          !glass && [
+            styles.fallback,
+            { backgroundColor: tint ?? theme.roundButtonFill },
+          ],
+        ]}
+      >
+        <SymbolView
+          name={icon}
+          size={26}
+          weight="semibold"
+          tintColor={tint ? "#fff" : theme.text}
+        />
+      </GlassView>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#18181b",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
   },
+  // Without Liquid Glass (Android, older iOS): a raised, frosted-looking disc.
+  fallback: {
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
   pressed: { opacity: 0.8 },
-  icon: { width: 28, height: 28 },
 });

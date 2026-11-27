@@ -1,18 +1,33 @@
-import { ARENAS, type Seat } from "@shared/api";
+import {
+  ARENAS,
+  SEAT_SHARE_HOURS,
+  type Seat,
+  type SeatShareHours,
+} from "@shared/api";
 import { columns, rows } from "@shared/grid";
 import type { Db } from "./db";
 
-/** How long a shared seat stays visible to friends. */
-export const SEAT_SHARE_HOURS = 4;
-
 export type { Seat };
+
+/**
+ * How long to share a seat for, from untrusted input: one of
+ * SEAT_SHARE_HOURS, the first when not given, or null when it isn't one.
+ */
+export function parseShareHours(input: unknown): SeatShareHours | null {
+  const { hours } = (input ?? {}) as Record<string, unknown>;
+  if (hours === undefined) return SEAT_SHARE_HOURS[0];
+  return SEAT_SHARE_HOURS.includes(hours as SeatShareHours)
+    ? (hours as SeatShareHours)
+    : null;
+}
 
 /** A seat from untrusted input, or null when it isn't one. */
 export function parseSeat(input: unknown): Seat | null {
   if (typeof input !== "object" || input === null) return null;
   const { arena, gridX, gridY } = input as Record<string, unknown>;
+  // Anywhere on the grid, not only on whole cells.
   const onGrid = (value: unknown, max: number) =>
-    Number.isInteger(value) &&
+    Number.isFinite(value) &&
     (value as number) >= 0 &&
     (value as number) <= max;
 
@@ -25,14 +40,15 @@ export function parseSeat(input: unknown): Seat | null {
   };
 }
 
-/** Shares `seat` with every friend for SEAT_SHARE_HOURS, replacing any earlier seat. */
+/** Shares `seat` with every friend for `hours`, replacing any earlier seat. */
 export async function shareSeat(
   db: Db,
   userId: string,
   seat: Seat,
+  hours: SeatShareHours,
   now: Date = new Date(),
 ): Promise<{ expiresAt: Date }> {
-  const expiresAt = new Date(now.getTime() + SEAT_SHARE_HOURS * 3_600_000);
+  const expiresAt = new Date(now.getTime() + hours * 3_600_000);
   await db.query(
     `INSERT INTO shares (user_id, kind, place, shared_at, expires_at)
      VALUES ($1, 'seat', $2::jsonb, $3, $4)

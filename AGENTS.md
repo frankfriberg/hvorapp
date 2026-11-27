@@ -113,6 +113,14 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   `npm run arena:build -- salen`; a test fails while they disagree. Colours are
   `ARENA_COLORS` in `shared/arena.ts`. The web draws it in `map/arenaMap.tsx`, the
   OG image via `arenaToSvg`, the app in `mobile/src/components/ArenaMap.tsx`.
+- **The app's 3D map is built from levels.** `public/arena/salen_3d-raw.svg` is a
+  Figma export with layer names as ids: `stairN` and `stageN` (N × 9 units high, one shared rise),
+  `sounddeckN` (a 6-unit box on `stairN`), columns in `Columns`, seats in the `Overlay`
+  group. Where levels overlap the higher one wins. `npm run arena:build -- salen`
+  turns it into `shared/arenas/salen-levels.ts` (kept out of the web bundle);
+  the multipliers are constants in `scripts/arena-geometry.mjs`.
+  Pins stand in the same scene (`mobile/src/lib/pinScene.ts`); their faces
+  (photo or initials) are captured off-screen by `PinFaces` and loaded as GL textures.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
 - **`shared/` is code both apps import** (`@shared/*` in each), along with
   `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to
@@ -132,7 +140,13 @@ run it on an in-memory PGlite (`src/server/friends.test.ts`).
   Opening it sends its owner a request to accept; if they had already asked
   you, it makes you friends. `/venn/[code]` is the page a browser lands on.
 - **Shares:** one row per person and kind in `shares`; a seat is visible to
-  friends for `SEAT_SHARE_HOURS` (4). Hotel rooms are meant to be the next kind.
+  friends for as long as its sharer picks from `SEAT_SHARE_HOURS` in
+  `shared/api.ts` (1, 2 or 4 hours; 1 by default). Hotel rooms are meant to
+  be the next kind.
+- **Profile photos:** a small JPEG or PNG per person in `users.avatar`, set
+  with `PUT /api/me/avatar` (the app crops it to 256 px) or taken from Google's
+  picture at sign-in; Apple gives none. `GET /api/avatars/<id>?v=<n>` serves
+  it without sign-in, cached for good: the version changes with the photo.
 - **Wire types** live in `shared/api.ts`, imported by the server and the app.
 - **Schema:** `db/migrations/*.sql`, applied in order by `npm run db:migrate`
   (production) or automatically on start (local PGlite). Add a new file;

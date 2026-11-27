@@ -1,7 +1,10 @@
 import "server-only";
+import { AVATAR_MAX_BYTES } from "@shared/api";
 import {
+  avatarType,
   createSession,
   type Provider,
+  setAvatar,
   signIn,
   type User,
   userForToken,
@@ -46,14 +49,37 @@ export async function withUser(
   return handler({ request, db, user });
 }
 
-/** Signs the identity in and answers with a new session token. */
+/**
+ * Signs the identity in and answers with a new session token. A `picture`
+ * from the provider becomes the profile photo of someone who has none.
+ */
 export async function startSession(
   provider: Provider,
   sub: string,
   name?: string,
+  picture?: string,
 ): Promise<Response> {
   const db = await getDb();
-  const user = await signIn(db, provider, sub, name);
+  let user = await signIn(db, provider, sub, name);
+  if (picture && !user.avatarUrl) {
+    const avatar = await fetchPicture(picture);
+    if (avatar) user = await setAvatar(db, user.id, avatar);
+  }
   const token = await createSession(db, user.id);
   return json({ token, user });
+}
+
+/** A provider's picture as a profile photo, or null when it won't do. */
+async function fetchPicture(url: string) {
+  try {
+    // Google serves its pictures at any size: ask for a small square.
+    const sized = url.replace(/=s\d+(-c)?$/, "=s256-c");
+    const response = await fetch(sized, { signal: AbortSignal.timeout(3000) });
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const type = avatarType(bytes);
+    return type && bytes.length <= AVATAR_MAX_BYTES ? { bytes, type } : null;
+  } catch {
+    return null;
+  }
 }

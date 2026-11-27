@@ -1,12 +1,20 @@
 import { error, json, readJson, withUser } from "@/server/http";
-import { parseSeat, shareSeat, stopSharingSeat } from "@/server/shares";
+import {
+  parseSeat,
+  parseShareHours,
+  shareSeat,
+  stopSharingSeat,
+} from "@/server/shares";
 
-/** Shares my seat with my friends: `{ arena, gridX, gridY }`. */
+/** Shares my seat with my friends: a `ShareSeatRequest`. */
 export function PUT(request: Request) {
   return withUser(request, async ({ db, user }) => {
-    const seat = parseSeat(await readJson(request));
+    const body = await readJson(request);
+    const seat = parseSeat(body);
     if (!seat) return error(400, "Not a seat");
-    return json({ ...seat, ...(await shareSeat(db, user.id, seat)) });
+    const hours = parseShareHours(body);
+    if (!hours) return error(400, "Not a share length");
+    return json({ ...seat, ...(await shareSeat(db, user.id, seat, hours)) });
   });
 }
 

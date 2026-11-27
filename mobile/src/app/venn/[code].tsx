@@ -4,20 +4,22 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import Button from "@/components/Button";
 import { api } from "@/lib/api";
+import { t } from "@/lib/i18n";
 import { useSession } from "@/lib/session";
+import { useTheme } from "@/lib/theme";
 
 function message(result: RequestResult): string {
   switch (result.status) {
     case "requested":
-      return `Forespørsel sendt til ${result.to.name}. Du ser plassen deres når de godtar.`;
+      return t.requestSent(result.to.name);
     case "friends":
-      return `Du og ${result.with.name} er nå venner.`;
+      return t.nowFriends(result.with.name);
     case "already-friends":
-      return `Du og ${result.with.name} er allerede venner.`;
+      return t.alreadyFriends(result.with.name);
     case "own-link":
-      return "Dette er din egen invitasjonslenke. Send den til vennene dine.";
+      return t.ownInvite;
     case "unknown-link":
-      return "Denne invitasjonen finnes ikke.";
+      return t.unknownInvite;
   }
 }
 
@@ -27,6 +29,7 @@ export default function OpenInvite() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const { session } = useSession();
   const [text, setText] = useState<string | null>(null);
+  const theme = useTheme();
 
   const token = session.status === "signed-in" ? session.token : null;
   const named = session.status === "signed-in" && Boolean(session.user.name);
@@ -39,8 +42,7 @@ export default function OpenInvite() {
       token,
     }).then(
       (result) => setText(message(result)),
-      () =>
-        setText("Kunne ikke åpne invitasjonen. Sjekk nettet og prøv igjen."),
+      () => setText(t.couldNotOpenInvite),
     );
   }, [token, named, code]);
 
@@ -56,10 +58,14 @@ export default function OpenInvite() {
 
   return (
     <View style={styles.screen}>
-      {text ? <Text style={styles.body}>{text}</Text> : <ActivityIndicator />}
+      {text ? (
+        <Text style={[styles.body, { color: theme.text }]}>{text}</Text>
+      ) : (
+        <ActivityIndicator />
+      )}
       {text && (
         <Button
-          label="Til vennene dine"
+          label={t.toYourFriends}
           onPress={() => router.replace("/venner")}
         />
       )}

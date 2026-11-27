@@ -7,6 +7,10 @@ export type * from "@shared/api";
 const baseUrl: string =
   process.env.EXPO_PUBLIC_API_URL ?? Constants.expoConfig?.extra?.webUrl;
 
+/** A path the API hands out, such as an avatar's, as a full URL. */
+export const webUrl = (path: string) =>
+  /^https?:\/\//.test(path) ? path : `${baseUrl}${path}`;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -18,6 +22,7 @@ export class ApiError extends Error {
 
 type Options = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  /** Sent as JSON, or as is when a Blob (an image upload). */
   body?: unknown;
   token?: string | null;
 };
@@ -27,13 +32,16 @@ export async function api<T>(
   path: string,
   { method = "GET", body, token }: Options = {},
 ): Promise<T> {
+  const blob = body instanceof Blob;
   const response = await fetch(`${baseUrl}/api${path}`, {
     method,
     headers: {
-      ...(body !== undefined && { "Content-Type": "application/json" }),
+      ...(body !== undefined && {
+        "Content-Type": blob ? body.type : "application/json",
+      }),
       ...(token && { Authorization: `Bearer ${token}` }),
     },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    body: body === undefined ? undefined : blob ? body : JSON.stringify(body),
   });
 
   if (!response.ok) {

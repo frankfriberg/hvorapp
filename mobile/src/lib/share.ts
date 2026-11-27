@@ -1,8 +1,7 @@
-import type { ComponentRef, RefObject } from "react";
-import { Platform, Share, type View } from "react-native";
-import { captureRef } from "react-native-view-shot";
+import { Platform, Share } from "react-native";
+import { t } from "./i18n";
 
-const TITLE = "Her sitter jeg!";
+const TITLE = t.shareTitle;
 
 // Wide enough to read the rows in a chat, small enough to send quickly.
 const IMAGE_WIDTH_PX = 1080;
@@ -14,17 +13,11 @@ const IMAGE_WIDTH_PX = 1080;
  */
 export async function shareLocation(
   url: string,
-  card: RefObject<ComponentRef<typeof View> | null>,
+  /** The image as a PNG file of the given width, resolving to its URI. */
+  capture: (width: number) => Promise<string>,
 ): Promise<void> {
   try {
-    // A file with a .png name, so share sheets treat it as an image rather
-    // than a document.
-    const file = await captureRef(card, {
-      format: "png",
-      result: "tmpfile",
-      fileName: "hvor",
-      width: IMAGE_WIDTH_PX,
-    });
+    const file = await capture(IMAGE_WIDTH_PX);
     // Required lazily: the module throws on import where it isn't linked.
     const { default: RNShare } = require("react-native-share");
     await RNShare.open({

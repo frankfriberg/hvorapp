@@ -1,4 +1,4 @@
-import type { Friends } from "@shared/api";
+import type { Friend, Friends } from "@shared/api";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { api } from "./api";
@@ -32,6 +32,33 @@ export function useFriends() {
 
   return { friends, refresh };
 }
+
+// Pretend friends sitting around the hall, so a development build shows
+// friend pins on the map without real friends sharing.
+// Some with sample portraits from randomuser.me, some with initials.
+const PORTRAITS = "https://randomuser.me/api/portraits";
+const DUMMY_SEATS = [
+  ["Ola Nordmann", 12, 14, `${PORTRAITS}/men/32.jpg`],
+  ["Kari Hansen", 30, 22, `${PORTRAITS}/women/44.jpg`],
+  ["Per Olsen", 40, 46, null],
+  ["Ingrid Berg", 18, 64, `${PORTRAITS}/women/68.jpg`],
+  ["Lars Johansen", 34, 78, null],
+] as const;
+
+export const DUMMY_FRIENDS: Friend[] = DUMMY_SEATS.map(
+  ([name, gridX, gridY, avatarUrl], i) => ({
+    id: `dummy-${i}`,
+    name,
+    avatarUrl,
+    seat: {
+      arena: "salen",
+      gridX,
+      gridY,
+      sharedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+    },
+  }),
+);
 
 export const initials = (name: string) =>
   name

@@ -32,15 +32,30 @@ export function gridToPercentage(gridX: number, gridY: number) {
   };
 }
 
+/**
+ * Where a point on the map falls on the grid, to a tenth of a cell: the app
+ * places pins anywhere, not only on whole cells.
+ */
+export function percentageToGrid(percentageX: number, percentageY: number) {
+  const tenth = (value: number) => Math.round(value * 10) / 10;
+  return {
+    gridX: tenth((percentageX / 100) * columns),
+    gridY: tenth((percentageY / 100) * rows),
+  };
+}
+
+// A whole or decimal grid coordinate, as in X16Y30 or X16.4Y30.2.
+const COORDINATE = String.raw`(\d+(?:\.\d+)?)`;
+
 export function parseGridCoordinates(
   location: string,
 ): { x: number; y: number } | null {
-  const match = location.match(/X(\d+)Y(\d+)/);
+  const match = location.match(new RegExp(`X${COORDINATE}Y${COORDINATE}`));
   if (!match) return null;
 
   return {
-    x: Number.parseInt(match[1], 10),
-    y: Number.parseInt(match[2], 10),
+    x: Number.parseFloat(match[1]),
+    y: Number.parseFloat(match[2]),
   };
 }
 
