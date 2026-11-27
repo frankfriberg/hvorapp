@@ -6,10 +6,27 @@
 
 export const ARENAS = ["salen"] as const;
 
+/** Each arena's name, as it's shown. */
+export const ARENA_NAMES: Record<(typeof ARENAS)[number], string> = {
+  salen: "Salen",
+};
+
+/** The venues, whose outside maps (`shared/venues/<name>.ts`) a pin can be on. */
+export const VENUES = ["brunstad"] as const;
+
+/** Where a pin can be: inside an arena, or outside on a venue's map. */
+export const PLACES = [...ARENAS, ...VENUES] as const;
+
+/**
+ * Where someone is: a point on the grid of a place's map, in an arena (a
+ * seat) or outside on a venue's; one at a time.
+ */
 export type Seat = {
-  arena: (typeof ARENAS)[number];
+  arena: (typeof PLACES)[number];
   gridX: number;
   gridY: number;
+  /** Moved as their phone does, while it's sharing its location live. */
+  live?: boolean;
 };
 
 /** How long a seat can be shared with friends, in hours; the first is the default. */
@@ -19,6 +36,9 @@ export type SeatShareHours = (typeof SEAT_SHARE_HOURS)[number];
 
 /** PUT /api/seat */
 export type ShareSeatRequest = Seat & { hours?: SeatShareHours };
+
+/** PATCH /api/seat: moves the shared seat, keeping when it ends. */
+export type MoveSeatRequest = Seat;
 
 export type Person = {
   id: string;

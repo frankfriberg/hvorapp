@@ -1,7 +1,9 @@
-import type { Friend, Friends } from "@shared/api";
+import type { Friend, Friends, Seat } from "@shared/api";
+import { ARENAS } from "@shared/api";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { api } from "./api";
+import { t, time } from "./i18n";
 import { useToken } from "./session";
 
 // Friends move between sessions; half a minute keeps the map current without
@@ -37,23 +39,27 @@ export function useFriends() {
 // friend pins on the map without real friends sharing.
 // Some with sample portraits from randomuser.me, some with initials.
 const PORTRAITS = "https://randomuser.me/api/portraits";
+// Two outside: one at the beach, one by the sports hall, live.
 const DUMMY_SEATS = [
-  ["Ola Nordmann", 12, 14, `${PORTRAITS}/men/32.jpg`],
-  ["Kari Hansen", 30, 22, `${PORTRAITS}/women/44.jpg`],
-  ["Per Olsen", 40, 46, null],
-  ["Ingrid Berg", 18, 64, `${PORTRAITS}/women/68.jpg`],
-  ["Lars Johansen", 34, 78, null],
+  ["Ola Nordmann", "salen", 12, 14, `${PORTRAITS}/men/32.jpg`, false],
+  ["Kari Hansen", "salen", 30, 22, `${PORTRAITS}/women/44.jpg`, false],
+  ["Per Olsen", "salen", 40, 46, null, false],
+  ["Ingrid Berg", "salen", 18, 64, `${PORTRAITS}/women/68.jpg`, false],
+  ["Lars Johansen", "salen", 34, 78, null, false],
+  ["Sofie Lund", "brunstad", 32, 76, `${PORTRAITS}/women/21.jpg`, false],
+  ["Emil Strand", "brunstad", 6, 30, null, true],
 ] as const;
 
 export const DUMMY_FRIENDS: Friend[] = DUMMY_SEATS.map(
-  ([name, gridX, gridY, avatarUrl], i) => ({
+  ([name, arena, gridX, gridY, avatarUrl, live], i) => ({
     id: `dummy-${i}`,
     name,
     avatarUrl,
     seat: {
-      arena: "salen",
+      arena,
       gridX,
       gridY,
+      ...(live && { live }),
       sharedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
     },
@@ -86,4 +92,13 @@ export function colorForInitials(letters: string): string {
   let hash = 0;
   for (const char of letters) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return FRIEND_COLORS[hash % FRIEND_COLORS.length];
+}
+
+/** Where a friend's shared seat is and until when, in words. */
+export function seatStatus(seat: Seat & { expiresAt: string }) {
+  const until = time(seat.expiresAt);
+  if (ARENAS.includes(seat.arena as (typeof ARENAS)[number])) {
+    return t.sitsInSalenUntil(until);
+  }
+  return seat.live ? t.liveUntil(until) : t.outsideUntil(until);
 }

@@ -1,7 +1,6 @@
 import { useContext } from "react";
 import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Animated, { useAnimatedStyle } from "react-native-reanimated";
-import { t } from "@/lib/i18n";
 import { friendPinSize, pinGrowth } from "@/lib/pinShape";
 import { SHARING_COLOR, useTheme } from "@/lib/theme";
 import { FloorContext } from "./FloorPoint";
@@ -11,19 +10,23 @@ const LABEL_WIDTH = 260;
 
 type Props = {
   name: string;
-  /** When they stop sharing, shown with a live dot. */
-  until: string;
+  /** Where they are and until when they share it, shown with a live dot. */
+  status: string;
 };
 
 /**
  * The label over a friend's pin, its point on their shared seat: their name
  * and when they stop sharing.
  */
-export default function FriendLabel({ name, until }: Props) {
+export default function FriendLabel({ name, status }: Props) {
   const { width } = useWindowDimensions();
   const theme = useTheme();
-  const { height, float } = friendPinSize(width);
-  const zoom = useContext(FloorContext)?.zoom;
+  const floor = useContext(FloorContext);
+  // As big as the pins on this floor.
+  const scale = floor?.floor?.pinScale ?? 1;
+  const height = friendPinSize(width).height * scale;
+  const float = friendPinSize(width).float * scale;
+  const zoom = floor?.zoom;
   // Centred over the pin's head, a little above it, as big as it's grown.
   const above = useAnimatedStyle(() => ({
     transform: [
@@ -35,14 +38,14 @@ export default function FriendLabel({ name, until }: Props) {
       <View style={styles.above}>
         <View
           accessible
-          accessibilityLabel={`${name}, ${t.sitsInSalenUntil(until)}`}
+          accessibilityLabel={`${name}, ${status}`}
           style={[styles.bubble, { backgroundColor: theme.card }]}
         >
           <Text style={[styles.name, { color: theme.text }]}>{name}</Text>
           <View style={styles.status}>
             <View style={styles.live} />
             <Text style={[styles.until, { color: theme.tertiaryText }]}>
-              {until}
+              {status}
             </Text>
           </View>
         </View>

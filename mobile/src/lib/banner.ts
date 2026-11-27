@@ -1,8 +1,9 @@
 import { t } from "./i18n";
 
 /**
- * The banner drawn under the map in a shared image. One banner at a time;
- * replace these values to run a different one (a sponsor, an event).
+ * The banner drawn under the map in every shared picture, inside and out:
+ * the ad space. One banner at a time; replace these values to run a
+ * different one (a sponsor, an event).
  */
 export const SHARE_BANNER: {
   headline: string;

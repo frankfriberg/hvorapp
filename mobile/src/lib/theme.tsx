@@ -1,4 +1,5 @@
 import { ARENA_DARK_PALETTE, ARENA_PALETTE } from "@shared/arena";
+import { VENUE_DARK_PALETTE, VENUE_PALETTE } from "@shared/venue";
 import { createContext, type ReactNode, useContext } from "react";
 import { useColorScheme } from "react-native";
 
@@ -20,6 +21,7 @@ const light = {
   roundButtonFill: "rgba(255,255,255,0.92)",
   pinShadowOpacity: 0.18,
   arena: ARENA_PALETTE,
+  venue: VENUE_PALETTE,
 };
 
 export type Theme = typeof light;
@@ -39,6 +41,7 @@ const dark: Theme = {
   roundButtonFill: "rgba(58,58,60,0.92)",
   pinShadowOpacity: 0.4,
   arena: ARENA_DARK_PALETTE,
+  venue: VENUE_DARK_PALETTE,
 };
 
 /** Sharing with friends, live: the friends button while I do, a friend's dot. */

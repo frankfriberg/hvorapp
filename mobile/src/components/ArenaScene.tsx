@@ -1,6 +1,12 @@
-import type { Arena, ArenaLevels } from "@shared/arena";
 import { type ExpoWebGLRenderingContext, GLView } from "expo-gl";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  memo,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { type StyleProp, StyleSheet, View, type ViewStyle } from "react-native";
 import {
   runOnJS,
@@ -8,11 +14,19 @@ import {
   useAnimatedReaction,
 } from "react-native-reanimated";
 import * as THREE from "three";
-import { buildArena } from "@/lib/arenaScene";
+import type { Floor, FloorModel } from "@/lib/floor";
+import { aimAt, createCamera, createRenderer, fitRenderer } from "@/lib/gl";
 import { buildPin, type PinFace, type ScenePinModel } from "@/lib/pinScene";
 import { PIN_LIFT_AT_REST } from "@/lib/pinShape";
 import { useTheme } from "@/lib/theme";
-import { type FloorView, PERSPECTIVE, TILT_DEG, viewScale } from "@/lib/tilt";
+import { type FloorView, TILT_DEG, viewScale } from "@/lib/tilt";
+import type { MapPicture } from "./ShareCard";
+
+// How far round the map's box a shared picture reaches, against its height.
+const CROP_PAD = 0.08;
+
+// All of a map, unturned: how it's seen first, unless its floor says.
+const WHOLE: FloorView = { turn: 0, zoom: 1, panX: 0, panY: 0 };
 
 /** A number that's still, or one that moves. */
 type Moving = number | SharedValue<number>;
@@ -44,40 +58,41 @@ function now(value: Moving | undefined, otherwise = 0) {
 }
 
 type Props = {
-  /** The map the pins are placed on: only its size, to centre the scene. */
-  arena: Arena;
-  /** Its levels, seats and columns, which are all that's built in 3D. */
-  levels: ArenaLevels;
+  /** The floor the pins stand on, and its scene, built for this map. */
+  floor: Floor;
+  model: FloorModel;
   /** How the floor is seen, as `tilt` places things on it. */
   view: SharedValue<FloorView>;
   /** The pins standing on it. */
   pins?: ScenePin[];
   /** Where the map's box is in `style`'s, in points. */
   box: { x: number; y: number; width: number; height: number };
+  /** Set to take a picture of the map as it's first seen, once it can. */
+  snapshot?: RefObject<(() => Promise<MapPicture>) | null>;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
- * The arena in 3D with its pins, drawn over all of `style`'s box, seen as
+ * A floor in 3D with its pins, drawn over all of `style`'s box, seen as
  * `tilt` sees the floor in the map's `box`: so things placed there with
  * `toScreen` stand on the same points of it.
  */
 export default memo(function ArenaScene({
-  arena,
-  levels,
+  floor,
+  model,
   view,
   pins = [],
   box,
+  snapshot,
   style,
 }: Props) {
   const theme = useTheme();
-  const palette = theme.arena;
-  // The ground round the hall, apart from its floor.
-  const background = useRef(theme.background);
-  background.current = theme.background;
+  // The colours now, for the background each frame: the model's can change
+  // with them, as a venue's does at night.
+  const themeNow = useRef(theme);
+  themeNow.current = theme;
   const shadowOpacity = useRef(theme.pinShadowOpacity);
   shadowOpacity.current = theme.pinShadowOpacity;
-  const model = useMemo(() => buildArena(levels, arena), [arena, levels]);
   // The pins, turned and scaled with the arena; their faces, facing the eye.
   const pinLayer = useMemo(() => new THREE.Group(), []);
   const faceLayer = useMemo(() => new THREE.Group(), []);
@@ -97,7 +112,9 @@ export default memo(function ArenaScene({
   const pictures = useRef(new Map<string, THREE.Texture>());
   const picture = useRef<((face: PinFace) => THREE.Texture) | null>(null);
   // Draws a frame; set once there's a context.
-  const draw = useRef<(() => void) | null>(null);
+  // Draws a frame, seen as the map is or as `seen`; set once there's a
+  // context.
+  const draw = useRef<((seen?: FloorView) => void) | null>(null);
   const frame = useRef<number | null>(null);
 
   /** Draws on the next frame, once however often it's asked. */
@@ -128,7 +145,7 @@ export default memo(function ArenaScene({
           faceLayer.remove(entry.model.face);
           entry.model.dispose();
         }
-        const pin = buildPin(arena, color, dot);
+        const pin = buildPin(floor, color, dot);
         pinLayer.add(pin.root);
         faceLayer.add(pin.face);
         entry = { model: pin, look, face: null };
@@ -158,14 +175,39 @@ export default memo(function ArenaScene({
     request();
   }
 
-  useEffect(sync);
+  // What of the pins changes what's built or where a still one stands: they
+  // are synced as it changes, not as the map around them renders.
+  const pinKey = pins
+    .map(({ id, color, dot, height, face, percentageX, percentageY }) =>
+      [
+        id,
+        color,
+        dot,
+        height,
+        face === null || face === "no one" ? face : face.uri,
+        typeof percentageX === "number" ? percentageX : "",
+        typeof percentageY === "number" ? percentageY : "",
+      ].join(" "),
+    )
+    .join("|");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: synced as what's built changes, by pinKey, not on every render of the map.
+  useEffect(sync, [pinKey]);
+  // Redrawn as the map's box moves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: drawn from mapBox's ref, redrawn as the box it holds moves.
+  useEffect(request, [request, box.x, box.y, box.width, box.height]);
+
+  // Drawn again as the model changes its own colours, a building pressed.
+  useEffect(() => {
+    model.onChange = request;
+    return () => {
+      model.onChange = undefined;
+    };
+  }, [model, request]);
 
   useEffect(() => {
-    model.paint(palette);
+    model.paint(theme);
     request();
-  }, [model, palette, request]);
-
-  useEffect(() => () => model.dispose(), [model]);
+  }, [model, theme, request]);
 
   useEffect(
     () => () => {
@@ -191,32 +233,11 @@ export default memo(function ArenaScene({
     return seen;
   }, () => {
     runOnJS(request)();
-  }, [pins]);
+  }, [pinKey]);
 
   function onContextCreate(gl: ExpoWebGLRenderingContext) {
-    const { drawingBufferWidth: width, drawingBufferHeight: height } = gl;
-    // three refuses any context that is a WebGLRenderingContext, taking it
-    // for WebGL 1; expo-gl's WebGL 2 context is one too, as in the spec, so
-    // the constructor is hidden from three while it checks.
-    const global = globalThis as { WebGLRenderingContext?: unknown };
-    const webgl1 = global.WebGLRenderingContext;
-    global.WebGLRenderingContext = undefined;
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = createRenderer(gl, width, height);
-    } finally {
-      global.WebGLRenderingContext = webgl1;
-    }
-    renderer.setPixelRatio(1);
-    renderer.setSize(width, height, false);
-
-    // The eye straight in front of the map's centre, PERSPECTIVE map heights
-    // away; what it sees is set as it draws, where the map's box is. Depth
-    // only from a map height in front of the centre to one behind, which the
-    // whole map is within, so the low steps' fronts aren't lost in it.
-    const camera = new THREE.PerspectiveCamera();
-    camera.position.set(0, 0, PERSPECTIVE);
-    const [near, far] = [PERSPECTIVE - 1, PERSPECTIVE + 1];
+    const renderer = createRenderer(gl);
+    const camera = createCamera();
 
     // Turned clockwise on screen, scaled and moved, inside the lean.
     const lean = new THREE.Group();
@@ -258,32 +279,49 @@ export default memo(function ArenaScene({
       return external;
     };
 
-    draw.current = () => {
-      const { x, y, width: across, height: tall } = mapBox.current;
-      const { width: wide, height: high } = size.current;
-      if (!tall || !wide) return;
-      // The map's box a map height tall at the map, its centre straight
-      // ahead, and the rest of the view round it: map heights at the near
-      // plane, for each point.
-      const unit = near / PERSPECTIVE / tall;
-      const [cx, cy] = [x + across / 2, y + tall / 2];
-      camera.projectionMatrix.makePerspective(
-        -cx * unit,
-        (wide - cx) * unit,
-        cy * unit,
-        -(high - cy) * unit,
-        near,
-        far,
-      );
-      camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    if (snapshot) {
+      // Seen as the map is first, whatever it's turned to now, then drawn
+      // back as it is.
+      snapshot.current = async () => {
+        draw.current?.(floor.start ?? WHOLE);
+        try {
+          // The map's box and a little round it, for what stands over its
+          // edges; GL counts rows from the bottom.
+          const { x, y, width: across, height: tall } = mapBox.current;
+          const { width: wide, height: high } = size.current;
+          const scale = gl.drawingBufferWidth / wide;
+          const pad = tall * CROP_PAD;
+          const [left, top] = [Math.max(x - pad, 0), Math.max(y - pad, 0)];
+          const right = Math.min(x + across + pad, wide);
+          const bottom = Math.min(y + tall + pad, high);
+          const { localUri } = await GLView.takeSnapshotAsync(gl, {
+            format: "jpeg",
+            compress: 0.9,
+            rect: {
+              x: Math.round(left * scale),
+              y: Math.round((high - bottom) * scale),
+              width: Math.round((right - left) * scale),
+              height: Math.round((bottom - top) * scale),
+            },
+          });
+          return { uri: localUri, aspect: (right - left) / (bottom - top) };
+        } finally {
+          draw.current?.();
+        }
+      };
+    }
 
-      const value = view.value;
+    draw.current = (seen) => {
+      if (!aimAt(camera, mapBox.current, size.current)) return;
+      fitRenderer(renderer, gl);
+      const value = seen ?? view.value;
       for (const layer of [model.group, pinLayer]) {
-        layer.scale.setScalar(viewScale(value));
+        layer.scale.setScalar(viewScale(value, floor.aspect));
         layer.rotation.set(0, 0, (-value.turn * Math.PI) / 180);
         // Down the screen is down the map; three's y is up.
         layer.position.set(value.panX, -value.panY, 0);
       }
+      model.place?.(value);
       for (const pin of shown.current) {
         built.current.get(pin.id)?.model.place({
           view: value,
@@ -299,7 +337,8 @@ export default memo(function ArenaScene({
       scene.updateMatrixWorld();
       camera.updateMatrixWorld();
       for (const { model: pin } of built.current.values()) pin.aim(camera);
-      renderer.setClearColor(background.current);
+      model.aim?.(camera);
+      renderer.setClearColor(model.background(themeNow.current));
       renderer.render(scene, camera);
       gl.endFrameEXP();
     };
@@ -325,22 +364,3 @@ export default memo(function ArenaScene({
     </View>
   );
 });
-
-function createRenderer(
-  gl: ExpoWebGLRenderingContext,
-  width: number,
-  height: number,
-) {
-  return new THREE.WebGLRenderer({
-    // three wants a canvas; this one only says how big it is.
-    canvas: {
-      width,
-      height,
-      style: {},
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      clientHeight: height,
-    } as unknown as HTMLCanvasElement,
-    context: gl as unknown as WebGL2RenderingContext,
-  });
-}

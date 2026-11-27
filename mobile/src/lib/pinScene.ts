@@ -1,6 +1,6 @@
 import { PIN_COLOR } from "@shared/pin";
 import * as THREE from "three";
-import { ROW_HEIGHT } from "@/lib/arena";
+import type { Floor } from "@/lib/floor";
 import {
   AXIS,
   DOT_SHADOW_OFFSET,
@@ -16,7 +16,7 @@ import {
   TEARDROP_BOX,
   TIP_R,
 } from "@/lib/pinShape";
-import { type FloorView, standHeight, TILT_DEG, viewScale } from "@/lib/tilt";
+import { type FloorView, TILT_DEG, viewScale } from "@/lib/tilt";
 
 // Pins built in 3D, to stand on the arena `buildArena` builds: each in
 // drawing units about the point it stands over, z up off the floor and y
@@ -84,7 +84,7 @@ const NEARER = { floor: 0.006, body: 0.008, face: 0.01 };
  * holds, the point it stands on's, `nearer` in front of it: what's in front
  * of that covers it, what's behind doesn't.
  */
-function atDepth<M extends THREE.Material>(
+export function atDepth<M extends THREE.Material>(
   material: M,
   depth: { value: number },
   nearer: number,
@@ -120,12 +120,12 @@ export type PinPose = {
 };
 
 /**
- * A pin in `color`, with a dot on the floor under it or not, standing on an
- * arena `frame.width` × `frame.height` big. `root` goes in the arena's group;
- * `face`, which is turned to the eye, in the scene itself.
+ * A pin in `color`, with a dot on the floor under it or not, standing on
+ * `floor`. `root` goes in the floor's group; `face`, which is turned to the
+ * eye, in the scene itself.
  */
 export function buildPin(
-  frame: { width: number; height: number },
+  floor: Pick<Floor, "aspect" | "heightAt" | "over">,
   color: string,
   dot: boolean,
 ) {
@@ -220,13 +220,13 @@ export function buildPin(
       unit = (pose.height * pinGrowth(pose.view.zoom)) / TEARDROP_BOX.height;
       // On the top of the stands there, or the seats on them.
       root.position.set(
-        (x / 100 - 0.5) * (frame.width / frame.height),
+        (x / 100 - 0.5) * floor.aspect,
         0.5 - y / 100,
-        standHeight(x, y) + ROW_HEIGHT / frame.height,
+        floor.heightAt(x, y) + floor.over,
       );
       // Turned back from the arena's turn: y is away from you.
       root.rotation.z = (pose.view.turn * Math.PI) / 180;
-      root.scale.setScalar(unit / viewScale(pose.view));
+      root.scale.setScalar(unit / viewScale(pose.view, floor.aspect));
       // Dragged right, the head leans right of the point; tipped away, it
       // goes up the floor.
       tilt.rotation.set(-pitch, angle, 0);

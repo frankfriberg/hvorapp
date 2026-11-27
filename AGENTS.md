@@ -51,6 +51,7 @@ npm run lint      # biome lint (check only)
 npm run lint:fix  # biome lint --write (auto-fix)
 npm run format    # biome format --write
 npm run typecheck # tsc --noEmit
+npm run venue:build -- brunstad  # the outside map, from OSM + Kartverket
 ```
 
 Tests run on **Vitest** (`npm test`); `shared/grid.ts` is covered by
@@ -112,7 +113,7 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   generated from `public/arena/salen.svg` — after re-exporting the SVG, run
   `npm run arena:build -- salen`; a test fails while they disagree. Colours are
   `ARENA_COLORS` in `shared/arena.ts`. The web draws it in `map/arenaMap.tsx`, the
-  OG image via `arenaToSvg`, the app in `mobile/src/components/ArenaMap.tsx`.
+  OG image via `arenaToSvg`; the app builds it in 3D (below).
 - **The app's 3D map is built from levels.** `public/arena/salen_3d-raw.svg` is a
   Figma export with layer names as ids: `stairN` and `stageN` (N × 9 units high, one shared rise),
   `sounddeckN` (a 6-unit box on `stairN`), columns in `Columns`, seats in the `Overlay`
@@ -121,6 +122,19 @@ Path aliases: `@/*` → `src/*`, `@public/*` → `public/*`.
   the multipliers are constants in `scripts/arena-geometry.mjs`.
   Pins stand in the same scene (`mobile/src/lib/pinScene.ts`); their faces
   (photo or initials) are captured off-screen by `PinFaces` and loaded as GL textures.
+- **The venue's outside map is built from open data.** `npm run venue:build -- brunstad`
+  writes `shared/venues/brunstad.ts`: OpenStreetMap outlines, each as tall as
+  Kartverket's laser scan says (surface less ground), downloads cached in `.cache/`.
+  Buildings OpenStreetMap lacks are added from the scan too (what stands
+  smooth, as a roof does, over 300 m², in the venue), as are roofs' slopes.
+  Its trees come from the same scan (what stands clear of the buildings), and
+  open ground is drawn as grass unless OpenStreetMap maps it as something else.
+  The venue's settings (centre, the outline of what's round it but not part of it,
+  which building opens which arena, the numbers on the hotel's blocks, outlines cut back to the building) are `VENUES` in `scripts/venue-geometry.mjs`.
+  The app's home is the venue's map (`ShareMap` on `venueFloor`); tapping an
+  arena's building opens `/<arena>`.
+  Its edge is `bounds` there; the ground goes 400 m past it, and the map
+  is kept from panning past it. Show `venue.credit` (ODbL, CC BY 4.0) wherever it's drawn.
 - Use `cn()` from `@/lib/utils` for conditional classNames.
 - **`shared/` is code both apps import** (`@shared/*` in each), along with
   `public/pin.svg`. Keep it free of Next.js, React Native and DOM imports; a push to
@@ -141,8 +155,10 @@ run it on an in-memory PGlite (`src/server/friends.test.ts`).
   you, it makes you friends. `/invite/[code]` is the page a browser lands on.
 - **Shares:** one row per person and kind in `shares`; a seat is visible to
   friends for as long as its sharer picks from `SEAT_SHARE_HOURS` in
-  `shared/api.ts` (1, 2 or 4 hours; 1 by default). Hotel rooms are meant to
-  be the next kind.
+  `shared/api.ts` (1, 2 or 4 hours; 1 by default). A seat is a point on a
+  place's grid: an arena's, or a venue's outside (`PLACES`), one at a time.
+  `live` marks one the app moves with the phone's location: `PATCH /api/seat`
+  moves it, keeping when it ends. Hotel rooms are meant to be the next kind.
 - **Profile photos:** a small JPEG or PNG per person in `users.avatar`, set
   with `PUT /api/me/avatar` (the app crops it to 256 px) or taken from Google's
   picture at sign-in; Apple gives none. `GET /api/avatars/<id>?v=<n>` serves

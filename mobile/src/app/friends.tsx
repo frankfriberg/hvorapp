@@ -6,14 +6,14 @@ import Avatar from "@/components/Avatar";
 import Button from "@/components/Button";
 import { api } from "@/lib/api";
 import { pickAvatar } from "@/lib/avatar";
-import { useFriends } from "@/lib/friends";
-import { t, time } from "@/lib/i18n";
+import { seatStatus, useFriends } from "@/lib/friends";
+import { t } from "@/lib/i18n";
 import { inviteUrl } from "@/lib/links";
 import { useSession } from "@/lib/session";
 import { useTheme } from "@/lib/theme";
 
-const seatStatus = (friend: Friend) =>
-  friend.seat ? t.sitsInSalenUntil(time(friend.seat.expiresAt)) : t.notSharing;
+const friendStatus = (friend: Friend) =>
+  friend.seat ? seatStatus(friend.seat) : t.notSharing;
 
 export default function FriendsScreen() {
   const router = useRouter();
@@ -119,7 +119,7 @@ export default function FriendsScreen() {
             key={friend.id}
             name={friend.name}
             avatarUrl={friend.avatarUrl}
-            detail={seatStatus(friend)}
+            detail={friendStatus(friend)}
           >
             <Button
               size="small"
