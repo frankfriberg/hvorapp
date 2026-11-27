@@ -140,6 +140,33 @@ function hallFloor({ shapes }: Arena): Ring {
 // How far past a side its far side is looked at, in map units.
 const OUTER_PROBE = 2;
 
+// How far under the stands a corner of the floor is tucked, in map units.
+const FLOOR_TUCK = 6;
+
+/**
+ * The floor's corners pulled in toward its middle until each is under the
+ * stands, so none of it shows past their outer walls; a corner with no stand
+ * on the way in stays where it was.
+ */
+function underStands(
+  ring: Ring,
+  heightAt: (x: number, y: number) => number,
+): Ring {
+  const cx = ring.reduce((sum, [x]) => sum + x, 0) / ring.length;
+  const cy = ring.reduce((sum, [, y]) => sum + y, 0) / ring.length;
+  return ring.map(([x, y]) => {
+    const length = Math.hypot(cx - x, cy - y);
+    const [dx, dy] = [(cx - x) / length, (cy - y) / length];
+    for (let d = 0; d < length; d += 1) {
+      if (heightAt(x + dx * d, y + dy * d) > 0) {
+        const tucked = Math.min(d + FLOOR_TUCK, length);
+        return [x + dx * tucked, y + dy * tucked];
+      }
+    }
+    return [x, y];
+  });
+}
+
 /** Whether a point is inside a ring (even-odd). */
 function insideRing(ring: Ring, x: number, y: number) {
   let inside = false;
@@ -232,7 +259,9 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
   };
 
   // The hall's floor, flat under it all, so it stands apart from round it.
-  const floor = hallFloor(frame);
+  const { heightAt } = arenaHeights(levels);
+  const hull = hallFloor(frame);
+  const floor = underStands(hull, heightAt);
   const flat = floor.map(([x, y]) => new THREE.Vector2(x, y));
   for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(flat, [])) {
     for (const k of [a, b, c]) {
@@ -240,7 +269,6 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
     }
   }
 
-  const { heightAt } = arenaHeights(levels);
   /** The height under a ring's middle, which it stands on. */
   const groundOf = (ring: Ring) =>
     heightAt(
@@ -271,8 +299,8 @@ export function buildArena(levels: ArenaLevels, frame: Arena) {
       const [mx, my] = [(x1 + x2) / 2, (y1 + y2) / 2];
       const off = OUTER_PROBE;
       const outside =
-        !insideRing(floor, mx + nx * off, my + ny * off) ||
-        !insideRing(floor, mx - nx * off, my - ny * off);
+        !insideRing(hull, mx + nx * off, my + ny * off) ||
+        !insideRing(hull, mx - nx * off, my - ny * off);
       return outside ? "tierSide" : side;
     };
   };
